@@ -1,0 +1,121 @@
+================================================================================
+403 Forbidden en Hostinger + cómo actualizar el proyecto sin perder datos
+================================================================================
+
+--- POR QUÉ SALE 403 ---------------------------------------------------------
+
+Apache usa como "raíz del sitio" una carpeta (public_html o la que elijas).
+
+Si esa carpeta NO tiene un index.php válido en la raíz, o solo hay carpetas
+sin listado permitido, suele responder 403 Forbidden.
+
+Laravel está pensado así:
+
+  carpeta_del_proyecto/
+    app, bootstrap, config, database, resources, routes, storage, vendor, .env
+    public/                    <-- LA RAÍZ DEL SITIO DEBE SER ESTA CARPETA
+      index.php
+      .htaccess
+      build/
+      (imágenes, favicon…)
+
+El index.php que viene en el repo está en public/index.php.
+Si el dominio apunta a public_html pero dejaste index dentro de public_html/public/
+y la raíz sigue siendo public_html (padre), al entrar al dominio Apache mira
+public_html/ y NO encuentra index.php ahí → 403.
+
+SOLUCIÓN CORRECTA (recomendada en Hostinger):
+
+  En hPanel → Dominios → tu dominio → Raíz del documento / Document root
+  cámbiala de "public_html" a:
+
+    public_html/public
+
+  (o la ruta completa que te muestre el panel, terminando en /public)
+
+Así /storage, /build y las rutas de Laravel funcionan como en local.
+
+Si Hostinger no deja cambiar la raíz a /public, tienes dos opciones:
+
+  B1) Proyecto en carpeta hermana de public_html:
+      deploy/hostinger-public_html/ (index.php puente).
+
+  B2) Todo bajo public_html y la raíz sigue siendo public_html:
+      Copia el archivo
+        deploy/hostinger-public_html-root/.htaccess
+      a
+        public_html/.htaccess
+      (reescribe internamente hacia la carpeta public/ y evita 403).
+
+
+--- ESTRUCTURA SI TODO EL CÓDIGO VIVE BAJO public_html ----------------------
+
+  public_html/
+    app/
+    bootstrap/
+    config/
+    database/
+    resources/
+    routes/
+    storage/
+    vendor/
+    .env
+    artisan
+    public/                 ← raíz del sitio en el panel = esta carpeta
+      index.php
+      .htaccess
+      build/
+
+NO pongas app/, vendor/, .env directamente visibles como única raíz sin /public.
+
+
+--- PERMISOS (si sigue fallando) ---------------------------------------------
+
+  cd ~/domains/TU_DOMINIO/public_html   # o donde esté el proyecto
+  find . -type d -exec chmod 755 {} \;
+  find . -type f -exec chmod 644 {} \;
+  chmod -R 775 storage bootstrap/cache
+  chmod +x artisan
+
+
+--- ACTUALIZAR CÓDIGO CON GIT (sin perder BD ni .env) -------------------------
+
+Los datos "reales" están en:
+  - Base de datos MySQL (Hostinger) → no se borran con git pull
+  - storage/app/ (archivos subidos) → no los pongas en .git si son únicos del servidor
+  - .env → NO debe estar en Git; nunca hagas "git checkout" que lo pise
+
+Flujo típico por SSH:
+
+  cd ~/domains/TU_DOMINIO/public_html    # o la carpeta donde clonaste el repo
+
+  git pull origin main
+
+  composer install --no-dev --optimize-autoloader
+
+  php artisan migrate --force
+
+  php artisan config:clear
+  php artisan cache:clear
+  php artisan view:clear
+  php artisan route:clear
+
+  # Si compilas en el servidor y hay Node:
+  npm ci && npm run build
+
+  # Si compilas en tu PC, sube solo public/build al servidor después del pull.
+
+  php artisan storage:link    # solo si falta el enlace public/storage
+
+IMPORTANTE: .env no se sube al repo. Tras clonar en un servidor nuevo, copias
+.env.example a .env y lo rellenas una vez; en los siguientes git pull el .env
+se queda igual en el servidor.
+
+
+--- RESUMEN --------------------------------------------------------------------
+
+1) 403 → pon la raíz del dominio en la carpeta public del proyecto Laravel.
+2) Actualizar → git pull + composer + migrate + limpiar cachés + npm run build.
+3) Datos persistentes → MySQL + storage/app + conservar .env en el servidor.
+
+================================================================================

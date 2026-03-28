@@ -1,0 +1,28 @@
+# =============================================================================
+# Hostinger: la raíz del sitio es "public_html" y NO puedes usar public_html/public
+# =============================================================================
+#
+# Renombra/sube este archivo a:  public_html/.htaccess
+#
+# Estructura obligatoria:
+#   public_html/
+#     .htaccess     ← este archivo
+#     app/
+#     vendor/
+#     public/
+#       index.php
+#       .htaccess   ← el de Laravel (del repo)
+#       build/
+#
+# Sin public/index.php seguirás con 403 u otro error.
+# =============================================================================
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Raíz del dominio → carpeta public
+    RewriteRule ^$ public/ [L]
+
+    # Todo lo demás, excepto si ya empieza por public/, va hacia public/
+    RewriteRule ^((?!public/).*)$ public/$1 [L,QSA]
+</IfModule>

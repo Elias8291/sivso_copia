@@ -1,0 +1,68 @@
+================================================================================
+Hostinger: Laravel con dominio en public_html
+================================================================================
+
+¿Error 403 Forbidden? Lee primero:
+  deploy/HOSTINGER-403-Y-ACTUALIZAR.txt
+
+La causa más habitual: la raíz del sitio debe ser la carpeta **public** del
+proyecto (public_html/public), no la carpeta padre.
+
+
+--- OPCIÓN A (recomendada): raíz del sitio = public_html/public ---------------
+
+Estructura:
+
+  public_html/
+    app, bootstrap, config, database, resources, routes, storage, vendor, .env…
+    public/
+      index.php
+      .htaccess
+      build/
+
+En Hostinger: Raíz del documento = public_html/public
+
+Actualizar: git pull en public_html, composer, migrate, npm run build.
+Detalle completo: deploy/HOSTINGER-403-Y-ACTUALIZAR.txt
+
+
+--- OPCIÓN B: proyecto hermano de public_html --------------------------------
+
+  dominio/
+    sivso_copia/          <- git clone, composer, .env (fuera de la raíz web)
+    public_html/
+      index.php           <- desde deploy/hostinger-public_html/index.php
+      .htaccess
+      build/              <- o enlace a ../sivso_copia/public/build
+
+Edita $laravelFolder en index.php si el repo no se llama sivso_copia.
+
+Pasos SSH (ejemplo):
+
+  cd ~/domains/TU-DOMINIO/public_html
+  cd ..
+  git clone https://github.com/Elias8291/sivso_copia.git
+  cd sivso_copia
+  composer install --no-dev --optimize-autoloader
+  cp .env.example .env
+  php artisan key:generate
+  # editar .env (BD, APP_URL)
+  php artisan migrate --force
+  php artisan storage:link
+  chmod -R 775 storage bootstrap/cache
+
+  cp sivso_copia/deploy/hostinger-public_html/index.php public_html/index.php
+  cp sivso_copia/deploy/hostinger-public_html/.htaccess public_html/.htaccess
+  # Ajustar $laravelFolder en public_html/index.php
+
+  cd public_html
+  ln -s ../sivso_copia/public/build build
+
+  # O npm run build en PC y subir public/build a public_html/build
+
+.env en servidor:
+  APP_URL=https://tu-dominio.com
+  APP_ENV=production
+  APP_DEBUG=false
+
+================================================================================
