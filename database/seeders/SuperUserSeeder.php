@@ -23,7 +23,8 @@ class SuperUserSeeder extends Seeder
                 'email' => 'abis71562@gmail.com',
                 'email_verified_at' => $now,
                 'password' => Hash::make('Abisai1789'),
-                'must_change_password' => 0,
+                // 0 = debe cambiar contraseña al entrar; 1 = ya puede usar el sistema sin ese paso
+                'must_change_password' => 1,
                 'activo' => 1,
                 'remember_token' => Str::random(10),
                 'created_at' => $now,

@@ -58,7 +58,7 @@ class UserController extends Controller
             'email' => strtolower($validated['email']),
             'password' => Hash::make($validated['password']),
             'activo' => $validated['activo'] ?? true,
-            'must_change_password' => true,
+            'must_change_password' => 0,
         ]);
 
         if (isset($validated['roles'])) {
@@ -102,8 +102,9 @@ class UserController extends Controller
         $user->email = strtolower($validated['email']);
         $user->activo = $validated['activo'] ?? true;
 
-        if (!empty($validated['password'])) {
+        if (! empty($validated['password'])) {
             $user->password = Hash::make($validated['password']);
+            $user->must_change_password = 0;
         }
 
         $user->save();

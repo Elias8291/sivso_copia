@@ -16,7 +16,9 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
         ]);
 
-        //
+        $middleware->alias([
+            'password.changed' => \App\Http\Middleware\EnsurePasswordHasBeenChanged::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

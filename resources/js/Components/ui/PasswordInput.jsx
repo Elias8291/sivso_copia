@@ -5,19 +5,22 @@ export default function PasswordInput({
     value,
     onChange,
     placeholder = '',
+    id,
+    autoComplete = 'current-password',
 }) {
     const [showPassword, setShowPassword] = useState(false);
 
     return (
         <div className="relative">
             <input
+                id={id}
                 type={showPassword ? 'text' : 'password'}
                 name={name}
                 value={value}
                 onChange={onChange}
                 placeholder={placeholder}
                 className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 pr-24 text-sm text-zinc-900 outline-none transition-all placeholder:text-zinc-400 focus:ring-2 focus:ring-brand-gold/25 dark:border-zinc-700 dark:bg-zinc-900 dark:text-white dark:placeholder:text-zinc-600"
-                autoComplete="current-password"
+                autoComplete={autoComplete}
             />
             <button
                 type="button"

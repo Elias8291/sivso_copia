@@ -20,9 +20,19 @@ class PasswordController extends Controller
             'password' => ['required', Password::defaults(), 'confirmed'],
         ]);
 
-        $request->user()->update([
+        $user = $request->user();
+        $wasForced = (int) $user->must_change_password === 0;
+
+        $user->update([
             'password' => Hash::make($validated['password']),
+            'must_change_password' => 1,
         ]);
+
+        if ($wasForced) {
+            return redirect()
+                ->route('dashboard')
+                ->with('success', 'Contraseña actualizada. Ya puedes usar el sistema.');
+        }
 
         return back();
     }

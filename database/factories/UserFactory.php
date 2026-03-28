@@ -26,11 +26,25 @@ class UserFactory extends Factory
     {
         return [
             'name' => fake()->name(),
+            'rfc' => strtoupper(fake()->bothify('????######??#')),
+            'nue' => null,
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
+            'must_change_password' => 1,
+            'activo' => 1,
             'remember_token' => Str::random(10),
         ];
+    }
+
+    /**
+     * Indicate that the user's password must be changed on next login.
+     */
+    public function mustChangePassword(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'must_change_password' => 0,
+        ]);
     }
 
     /**
