@@ -2,7 +2,6 @@ import React, { useRef, useState } from 'react';
 import { router, useForm } from '@inertiajs/react';
 import { Eye, EyeOff } from 'lucide-react';
 import AuthLayout from '../../components/layout/AuthLayout';
-import PasswordInput from '../../components/ui/PasswordInput';
 import { ThemeProvider } from '../../contexts/ThemeContext';
 
 const inputClass =
@@ -14,7 +13,6 @@ export default function ForceChangePassword() {
     const [showConfirm, setShowConfirm] = useState(false);
 
     const { data, setData, put, processing, errors, reset } = useForm({
-        current_password: '',
         password: '',
         password_confirmation: '',
     });
@@ -29,9 +27,6 @@ export default function ForceChangePassword() {
                     reset('password', 'password_confirmation');
                     passwordInput.current?.focus();
                 }
-                if (errs.current_password) {
-                    reset('current_password');
-                }
             },
         });
     };
@@ -40,7 +35,7 @@ export default function ForceChangePassword() {
         <ThemeProvider>
             <AuthLayout
                 title="Cambiar contraseña"
-                subtitle="Por seguridad debes definir una contraseña nueva antes de continuar"
+                subtitle="Define tu contraseña definitiva antes de continuar"
                 imageSrc="/images/login-2.png"
             >
                 <header className="mb-7 text-center lg:text-left">
@@ -52,32 +47,11 @@ export default function ForceChangePassword() {
                         Contraseña obligatoria
                     </h2>
                     <p className="mt-1 text-[13px] leading-relaxed text-zinc-500 dark:text-zinc-500">
-                        Usa la contraseña con la que iniciaste sesión y elige una nueva.
+                        Ya validaste tu acceso al iniciar sesión. Solo elige y confirma tu nueva contraseña.
                     </p>
                 </header>
 
                 <form onSubmit={submit} className="space-y-4">
-                    <div className="space-y-1.5">
-                        <label
-                            htmlFor="current_password"
-                            className="ml-0.5 block text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400"
-                        >
-                            Contraseña actual
-                        </label>
-                        <PasswordInput
-                            id="current_password"
-                            name="current_password"
-                            value={data.current_password}
-                            onChange={(e) => setData('current_password', e.target.value)}
-                            placeholder="••••••••"
-                        />
-                        {errors.current_password && (
-                            <p className="text-xs font-medium text-red-600 dark:text-red-400">
-                                {errors.current_password}
-                            </p>
-                        )}
-                    </div>
-
                     <div className="space-y-1.5">
                         <label
                             htmlFor="password"
