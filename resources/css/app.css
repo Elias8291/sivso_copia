@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    html {
+        @apply scroll-smooth;
+    }
+
+    body {
+        @apply min-h-screen min-h-[100dvh] antialiased transition-colors duration-300;
+        @apply bg-zinc-50 text-zinc-900;
+        @apply dark:bg-[#09090b] dark:text-zinc-100;
+        background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
+        background-size: 24px 24px;
+    }
+    
+    .dark body {
+        background-image: radial-gradient(#18181b 1px, transparent 1px);
+    }
+}
+
+@layer utilities {
+    .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+    .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+    }
+}
