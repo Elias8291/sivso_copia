@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIVSO – Esquema Normalizado (dbdiagram.io)</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+
+header {
+  background: #1a1f2e; border-bottom: 1px solid #2d3748;
+  padding: 14px 24px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+header h1 { font-size: 17px; font-weight: 700; color: #fff; }
+.chip { font-size: 11px; padding: 3px 9px; border-radius: 999px; font-weight: 600; }
+.chip-blue  { background: #1e3a5f; color: #93c5fd; }
+.chip-green { background: #14532d; color: #86efac; }
+.chip-amber { background: #451a03; color: #fcd34d; }
+
+.tabs { display: flex; background: #1a1f2e; border-bottom: 1px solid #2d3748; padding: 0 20px; gap: 2px; }
+.tab  { padding: 10px 16px; font-size: 13px; cursor: pointer; color: #94a3b8; border-bottom: 2px solid transparent; }
+.tab.active { color: #60a5fa; border-bottom-color: #60a5fa; }
+.tab:hover:not(.active) { color: #cbd5e1; }
+
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* ── DIAGRAM ─────────────────── */
+#diagram-panel { padding: 20px; }
+.diagram-wrap { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+.group-label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px;
+  color: #475569; font-weight: 700; margin: 4px 0 8px;
+  border-bottom: 1px solid #1e293b; padding-bottom: 4px;
+}
+.col-group { display: flex; flex-direction: column; gap: 12px; }
+
+.tbl {
+  background: #1a1f2e; border: 1px solid #2d3748; border-radius: 8px;
+  overflow: hidden; min-width: 230px; max-width: 290px; font-size: 12px;
+}
+.tbl.tbl-org  { border-top: 3px solid #818cf8; }
+.tbl.tbl-cat  { border-top: 3px solid #38bdf8; }
+.tbl.tbl-emp  { border-top: 3px solid #34d399; }
+.tbl.tbl-fact { border-top: 3px solid #f59e0b; min-width: 320px; max-width: 380px; }
+
+.tbl-head {
+  padding: 7px 12px; font-weight: 700; font-size: 12px; color: #f8fafc;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.tbl-head .src { font-size: 9px; color: #64748b; font-weight: 400; }
+
+.tbl-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 10px; border-top: 1px solid #1e293b; color: #94a3b8; line-height: 1.4;
+}
+.tbl-row.sec  { background: #12172a; }
+.tbl-row.new  { background: #052e16; color: #bbf7d0; border-left: 2px solid #22c55e; }
+.tbl-row.snap { color: #fb923c; }
+.tbl-row.leg  { color: #6b7280; }
+
+.b { font-size: 9px; padding: 1px 5px; border-radius: 3px; font-weight: 700; flex-shrink: 0; letter-spacing: .3px; }
+.pk  { background: #1e3a5f; color: #60a5fa; }
+.fk  { background: #2d1b69; color: #c4b5fd; }
+.uq  { background: #1a2a1a; color: #4ade80; }
+.idx { background: #1e293b; color: #94a3b8; }
+.nb  { background: #1c1917; color: #78716c; }
+
+.arrow { font-size: 10px; color: #475569; }
+
+/* ── DBML ─────────────────── */
+#dbml-panel { padding: 20px; }
+.dbml-actions { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+.btn {
+  padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600;
+  cursor: pointer; border: none; transition: all .15s;
+}
+.btn:hover { opacity: .85; }
+.btn-blue  { background: #2563eb; color: #fff; }
+.btn-copy  { background: #1e293b; color: #94a3b8; border: 1px solid #334155; }
+.note { font-size: 12px; color: #64748b; }
+
+pre.dbml-code {
+  background: #0d1117; border: 1px solid #2d3748; border-radius: 8px;
+  padding: 18px; font-size: 12px; line-height: 1.75;
+  overflow-x: auto; color: #94a3b8; white-space: pre; tab-size: 2;
+}
+
+/* ── MAPPING ─────────────────── */
+#map-panel { padding: 20px; }
+table.map { width: 100%; border-collapse: collapse; font-size: 12px; }
+table.map th {
+  background: #1e2435; color: #94a3b8; padding: 8px 12px; text-align: left;
+  font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .5px;
+}
+table.map td {
+  padding: 7px 12px; border-bottom: 1px solid #1e293b; vertical-align: top; color: #94a3b8;
+}
+table.map tr:hover td { background: #141824; }
+.orig { color: #fbbf24; font-family: monospace; }
+.new-tbl { color: #60a5fa; font-family: monospace; }
+.col { color: #c4b5fd; font-family: monospace; }
+
+/* ── TIPS ─────────────────── */
+.tip {
+  background: #1a2535; border: 1px solid #1e3a5f; border-radius: 8px;
+  padding: 12px 16px; margin-top: 16px; font-size: 13px; line-height: 1.6; color: #93c5fd;
+}
+.tip strong { color: #60a5fa; }
+.divider { border: none; border-top: 1px solid #1e293b; margin: 20px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>SIVSO &middot; Esquema Normalizado</h1>
+  <span class="chip chip-amber">legacy: concentrado &middot; propuesta &middot; delegacion &middot; delegado &middot; dependences</span>
+  <span class="chip chip-green">13 tablas &middot; sin p&eacute;rdida de datos</span>
+  <span class="chip chip-blue">3 FKs denorm en solicitudes_vestuario &rarr; reportes r&aacute;pidos</span>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="show('diagram-panel',this)">Diagrama visual</div>
+  <div class="tab" onclick="show('dbml-panel',this)">DBML (dbdiagram.io)</div>
+  <div class="tab" onclick="show('map-panel',this)">Mapeo legacy &rarr; nuevo</div>
+</div>
+
+<!-- ═══════════════ DIAGRAMA VISUAL ═══════════════ -->
+<div id="diagram-panel" class="panel active">
+<div style="padding:20px;">
+
+<div class="diagram-wrap">
+
+  <!-- COL 1: ORGANIZACIÓN -->
+  <div class="col-group" style="flex:0 0 auto;">
+    <div class="group-label">Organizaci&oacute;n</div>
+
+    <div class="tbl tbl-org">
+      <div class="tbl-head">dependencias <span class="src">&larr; dependences + concentrado</span></div>
+      <div class="tbl-row"><span class="b pk">PK</span> id</div>
+      <div class="tbl-row"><span class="b uq">UQ</span> (ur, nombre)</div>
+      <div class="tbl-row"><span class="b idx">IDX</span> ur &middot; codigo</div>
+      <div class="tbl-row">nombre &middot; ur_texto</div>
+    </div>
+
+    <div class="tbl tbl-org">
+      <div class="tbl-head">delegaciones <span class="src">&larr; delegacion + delegado</span></div>
+      <div class="tbl-row"><span class="b pk">PK</span> id</div>
+      <div class="tbl-row"><span class="b uq">UQ</span> clave</div>
+      <div class="tbl-row">nombre</div>
+    </div>
+
+    <div class="tbl tbl-org">
+      <div class="tbl-head">dependencia_delegacion <span class="src">&larr; delegacion</span></div>
+      <div class="tbl-row"><span class="b fk">FK</span> dependencia_id <span class="arrow">&rarr; dependencias</span></div>
+      <div class="tbl-row"><span class="b fk">FK</span> delegacion_id <span class="arrow">&rarr; delegaciones</span></div>
+      <div class="tbl-row"><span class="b uq">PK</span> compuesto (dep + del)</div>
+    </div>
+
+    <div class="tbl tbl-org">
+      <div class="tbl-head">delegados <span class="src">&larr; delegado</span></div>
+      <div class="tbl-row"><span class="b pk">PK</span> id</div>
+      <div class="tbl-row new"><span class="b fk">FK</span> delegacion_id <span class="arrow">&rarr; delegaciones</span> <span style="font-size:10px;color:#22c55e;">&#9733; directo</span></div>
+      <div class="tbl-row">nombre_completo</div>
+    </div>
+  </div>
+
+  <!-- COL 2: CATÁLOGO VESTUARIO -->
+  <div class="col-group" style="flex:0 0 auto;">
+    <div class="group-label">Cat&aacute;logo vestuario</div>
+
+    <div class="tbl tbl-cat">
+      <div class="tbl-head">tipos_partida_especifica <span class="src">&larr; propuesta</span></div>
+      <div class="tbl-row"><span class="b pk">PK</span> id</div>
+      <div class="tbl-row"><span class="b uq">UQ</span> codigo <span style="font-size:10px;">(244, 246&hellip;)</span></div>
+      <div class="tbl-row">nombre</div>
+    </div>
+
+    <div class="tbl tbl-cat">
+      <div class="tbl-head">partidas <span class="src">&larr; concentrado + propuesta</span></div>
+      <div class="tbl-row"><span class="b pk">PK</span> id</div>
+      <div class="tbl-row"><span class="b uq">UQ</span> no_partida</div>
+      <div class="tbl-row">descripcion</div>
+    </div>
+
+    <div class="tbl tbl-cat">
+      <div class="tbl-head">partidas_por_ejercicio <span class="src">&larr; concentrado</span></div>
+      <div class="tbl-row"><span class="b pk">PK</span> id</div>
+      <div class="tbl-row"><span class="b fk">FK</span> partida_id <span class="arrow">&rarr; partidas</span></div>
+      <div class="tbl-row"><span class="b uq">UQ</span> (partida_id, anio)</div>
+      <div class="tbl-row">no_partida_snapshot</div>
+      <div class="tbl-row">clave_como_se_uso &middot; clave_presupuestal</div>
+      <div class="tbl-row">clave_para_ejercicio</div>
+    </div>
+
+    <div class="tbl tbl-cat">
+      <div class="tbl-head">partidas_especificas <span class="src">&larr; concentrado.clave2025</span></div>
+      <div class="tbl-row"><span class="b pk">PK</span> id</div>
+      <div class="tbl-row"><span class="b fk">FK</span> partida_id <span class="arrow">&rarr; partidas</span></div>
+      <div class="tbl-row"><span class="b idx">IDX</span> (partida_id, anio)</div>
+      <div class="tbl-row"><span class="b idx">IDX</span> (anio, clave)</div>
+      <div class="tbl-row">clave &middot; descripcion &middot; clave_partida</div>
+    </div>
+
+    <div class="tbl tbl-cat">
+      <div class="tbl-head">productos <span class="src">&larr; propuesta</span></div>
+      <div class="tbl-row"><span class="b pk">PK</span> id</div>
+      <div class="tbl-row"><span class="b fk">FK</span> partida_id <span class="arrow">&rarr; partidas</span></div>
+      <div class="tbl-row"><span class="b fk">FK</span> tipo_partida_especifica_id <span class="arrow">&rarr; tipos_pe</span></div>
+      <div class="tbl-row"><span class="b idx">IDX</span> (partida_id, tipo_pe_id)</div>
+      <div class="tbl-row">lote &middot; descripcion &middot; marca</div>
+      <div class="tbl-row">unidad_medida &middot; codigo &middot; medida</div>
+      <div class="tbl-row leg"><span class="b nb">LG</span> legacy_propuesta_id</div>
+    </div>
+
+    <div class="tbl tbl-cat">
+      <div class="tbl-head">producto_precios <span class="src">&larr; propuesta</span></div>
+      <div class="tbl-row"><span class="b pk">PK</span> id</div>
+      <div class="tbl-row"><span class="b fk">FK</span> producto_id <span class="arrow">&rarr; productos</span></div>
+      <div class="tbl-row"><span class="b uq">UQ</span> (producto_id, anio)</div>
+      <div class="tbl-row">precio_unitario &middot; subtotal &middot; proveedor</div>
+    </div>
+  </div>
+
+  <!-- COL 3: EMPLEADOS + FACT -->
+  <div class="col-group" style="flex:0 0 auto;">
+    <div class="group-label">Empleados &amp; solicitudes</div>
+
+    <div class="tbl tbl-emp">
+      <div class="tbl-head">empleados <span class="src">&larr; concentrado + delegacion</span></div>
+      <div class="tbl-row"><span class="b pk">PK</span> id</div>
+      <div class="tbl-row"><span class="b idx">IDX</span> nue</div>
+      <div class="tbl-row"><span class="b fk">FK</span> dependencia_id <span class="arrow">&rarr; dependencias</span></div>
+      <div class="tbl-row"><span class="b fk">FK</span> delegacion_id <span class="arrow">&rarr; delegaciones</span></div>
+      <div class="tbl-row">nombre &middot; apellido_paterno &middot; apellido_materno</div>
+      <div class="tbl-row leg">ur <span style="font-size:10px;">(hist&oacute;rico)</span></div>
+    </div>
+
+    <div class="tbl tbl-emp">
+      <div class="tbl-head">cupos_presupuesto</div>
+      <div class="tbl-row"><span class="b pk">PK</span> id</div>
+      <div class="tbl-row"><span class="b fk">FK</span> dependencia_id <span class="arrow">&rarr; dependencias</span></div>
+      <div class="tbl-row"><span class="b fk">FK</span> partida_id <span class="arrow">&rarr; partidas</span></div>
+      <div class="tbl-row"><span class="b fk">FK</span> tipo_partida_especifica_id <span class="arrow">&rarr; tipos_pe</span></div>
+      <div class="tbl-row"><span class="b uq">UQ</span> (dep + partida + tipo + anio)</div>
+      <div class="tbl-row">anio &middot; cantidad_limite</div>
+    </div>
+
+    <!-- FACT TABLE -->
+    <div class="tbl tbl-fact">
+      <div class="tbl-head" style="background:#1c1a10;">
+        &#11088; solicitudes_vestuario
+        <span class="src">&larr; concentrado (fact table)</span>
+      </div>
+      <div class="tbl-row sec"><span class="b pk">PK</span> id</div>
+
+      <div class="tbl-row sec" style="color:#f8fafc;font-size:10px;padding:5px 10px;letter-spacing:.5px;">&mdash; Relaciones principales &mdash;</div>
+      <div class="tbl-row"><span class="b fk">FK</span> empleado_id <span class="arrow">&rarr; empleados</span></div>
+      <div class="tbl-row"><span class="b fk">FK</span> producto_id <span class="arrow">&rarr; productos</span></div>
+      <div class="tbl-row"><span class="b fk">FK</span> partida_especifica_id <span class="arrow">&rarr; partidas_especificas</span></div>
+
+      <div class="tbl-row sec" style="color:#f8fafc;font-size:10px;padding:5px 10px;letter-spacing:.5px;">&mdash; &#9733; FKs denormalizadas (GROUP BY sin JOINs) &mdash;</div>
+      <div class="tbl-row new"><span class="b fk">FK</span> <b>dependencia_id</b> <span class="arrow">&rarr; dependencias</span> <span style="font-size:10px;">= empleado.dep</span></div>
+      <div class="tbl-row new"><span class="b fk">FK</span> <b>partida_id</b> <span class="arrow">&rarr; partidas</span> <span style="font-size:10px;">= producto.partida</span></div>
+      <div class="tbl-row new"><span class="b fk">FK</span> <b>tipo_partida_especifica_id</b> <span class="arrow">&rarr; tipos_pe</span> <span style="font-size:10px;">= producto.tipo</span></div>
+
+      <div class="tbl-row sec" style="color:#f8fafc;font-size:10px;padding:5px 10px;letter-spacing:.5px;">&mdash; Datos de la solicitud &mdash;</div>
+      <div class="tbl-row"><span class="b idx">IDX</span> anio</div>
+      <div class="tbl-row">talla &middot; cantidad</div>
+      <div class="tbl-row">precio_unitario &middot; importe &middot; iva &middot; importe_total</div>
+
+      <div class="tbl-row sec" style="color:#f8fafc;font-size:10px;padding:5px 10px;letter-spacing:.5px;">&mdash; Snapshots legado &mdash;</div>
+      <div class="tbl-row snap"><span class="b nb">SN</span> no_partida_snapshot</div>
+      <div class="tbl-row snap"><span class="b nb">SN</span> clave_partida_snapshot</div>
+      <div class="tbl-row snap"><span class="b nb">SN</span> clave_para_ejercicio_snapshot</div>
+      <div class="tbl-row leg"><span class="b nb">LG</span> legacy_concentrado_id (unique)</div>
+
+      <div class="tbl-row new"><span class="b uq">IDX</span> (anio, dep_id, partida_id, tipo_id) <span style="font-size:10px;">&larr; &iacute;ndice compuesto</span></div>
+    </div>
+  </div>
+
+</div><!-- diagram-wrap -->
+
+<div style="margin-top:20px;display:flex;flex-wrap:wrap;gap:16px;font-size:11px;color:#64748b;">
+  <span><span style="display:inline-block;width:10px;height:10px;background:#818cf8;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>Organizaci&oacute;n</span>
+  <span><span style="display:inline-block;width:10px;height:10px;background:#38bdf8;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>Cat&aacute;logo vestuario</span>
+  <span><span style="display:inline-block;width:10px;height:10px;background:#34d399;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>Empleados</span>
+  <span><span style="display:inline-block;width:10px;height:10px;background:#f59e0b;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>Fact table (solicitudes)</span>
+  <span><span style="display:inline-block;width:10px;height:10px;background:#22c55e;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>&#9733; = columna denorm / simplificaci&oacute;n</span>
+  <span><span style="color:#fb923c;">SN</span> = snapshot &nbsp; <span style="color:#6b7280;">LG</span> = ID legado</span>
+</div>
+
+<div class="tip">
+  <strong>&iquest;Por qu&eacute; 3 FKs denormalizadas en solicitudes_vestuario?</strong><br>
+  Sin ellas, para agrupar por dependencia/partida/tipo hay que hacer JOIN con empleados (&rarr; dependencia_id) y productos (&rarr; partida_id + tipo_id). Con las 3 FKs directas, el GROUP BY cae en un &iacute;ndice compuesto de la misma tabla &mdash; los JOINs restantes solo sirven para etiquetas (nombres). Cero p&eacute;rdida de datos.
+</div>
+<div class="tip">
+  <strong>&iquest;Por qu&eacute; delegados con FK directo?</strong><br>
+  En la base original, cada fila de <code>delegado</code> tiene exactamente una <code>delegacion</code>. Un FK directo es m&aacute;s simple y r&aacute;pido que un pivot N:M. Si en el futuro un delegado puede servir en varias delegaciones, se agrega el pivot despu&eacute;s.
+</div>
+
+</div>
+</div>
+
+<!-- ═══════════════ DBML ═══════════════ -->
+<div id="dbml-panel" class="panel">
+<div style="padding:20px;">
+
+<div class="dbml-actions">
+  <a href="https://dbdiagram.io/d" target="_blank">
+    <button class="btn btn-blue">Abrir dbdiagram.io &rarr;</button>
+  </a>
+  <button class="btn btn-copy" onclick="copyDbml()">Copiar DBML al portapapeles</button>
+  <span class="note">Copia el c&oacute;digo, abre dbdiagram.io y p&eacute;galo en el editor de la izquierda.</span>
+</div>
+
+<pre class="dbml-code" id="dbml-text">// ═══════════════════════════════════════════════════════════════
+// SIVSO – Esquema normalizado  (base: copiasivso)
+// ═══════════════════════════════════════════════════════════════
+// Tablas legacy de origen:
+//   concentrado  → empleados + solicitudes_vestuario + partidas
+//                  + partidas_por_ejercicio + partidas_especificas
+//   propuesta    → productos + producto_precios + tipos_partida_especifica
+//   delegacion   → dependencia_delegacion + delegaciones (+ link empleados)
+//   delegado     → delegados (FK directo a delegaciones)
+//   dependences  → dependencias
+// ═══════════════════════════════════════════════════════════════
+
+
+// ─── GRUPO 1: ORGANIZACIÓN ──────────────────────────────────
+
+Table dependencias {
+  id        bigint       [pk, increment]
+  codigo    varchar(12)  [note: 'dependences.key']
+  ur        int          [note: 'concentrado.ur']
+  nombre    varchar(255) [not null]
+  ur_texto  varchar(120) [note: 'concentrado.ur_dependencia']
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    ur           [name: 'idx_dep_ur']
+    codigo       [name: 'idx_dep_codigo']
+    (ur, nombre) [unique, name: 'uq_dep_ur_nombre']
+  }
+}
+
+Table delegaciones {
+  id     bigint      [pk, increment]
+  clave  varchar(60) [unique, not null, note: 'delegacion.delegacion ∪ delegado.delegacion']
+  nombre varchar(255)
+  created_at timestamp
+  updated_at timestamp
+}
+
+// Pivot N:M – una dependencia puede aparecer en varias delegaciones
+Table dependencia_delegacion {
+  dependencia_id bigint [not null, ref: > dependencias.id]
+  delegacion_id  bigint [not null, ref: > delegaciones.id]
+
+  indexes {
+    (dependencia_id, delegacion_id) [pk]
+  }
+}
+
+// ★ FK directo (1 delegado → 1 delegación; en legacy cada fila tiene una sola)
+Table delegados {
+  id              bigint       [pk, increment]
+  delegacion_id   bigint       [ref: > delegaciones.id,
+                                note: 'delegado.delegacion → delegaciones.clave']
+  nombre_completo varchar(255) [not null, note: 'delegado.nombre']
+  created_at timestamp
+  updated_at timestamp
+}
+
+
+// ─── GRUPO 2: CATÁLOGO VESTUARIO ────────────────────────────
+
+Table tipos_partida_especifica {
+  id     bigint   [pk, increment]
+  codigo smallint [unique, not null,
+                   note: 'propuesta.partida_especifica (244, 246…)']
+  nombre varchar(120)
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table partidas {
+  id          bigint [pk, increment]
+  no_partida  int    [unique, not null,
+                      note: 'concentrado.no_partida = propuesta.partida']
+  descripcion text   [note: 'propuesta.descripcion → concentrado.partida_descripcion (fallback)']
+  created_at timestamp
+  updated_at timestamp
+}
+
+// Datos de la partida que varían por año fiscal
+Table partidas_por_ejercicio {
+  id                   bigint       [pk, increment]
+  partida_id           bigint       [not null, ref: > partidas.id]
+  anio                 smallint     [not null]
+  no_partida_snapshot  int          [note: 'snapshot de partidas.no_partida']
+  clave_como_se_uso    varchar(512) [note: 'concentrado.clave_partida']
+  clave_para_ejercicio varchar(512)
+  clave_presupuestal   int          [note: 'concentrado.clave_presupuestal']
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (partida_id, anio)          [unique]
+    (anio, no_partida_snapshot) [name: 'idx_ppe_anio_snap']
+  }
+}
+
+// Cada clave de ejercicio (concentrado.clave2025) con su descripción de línea
+Table partidas_especificas {
+  id            bigint       [pk, increment]
+  partida_id    bigint       [not null, ref: > partidas.id]
+  anio          smallint     [not null]
+  clave         varchar(512) [not null, note: 'concentrado.clave2025']
+  descripcion   text         [note: 'concentrado.descripcion (nivel línea)']
+  clave_partida varchar(512) [note: 'concentrado.clave_partida de esa línea']
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (partida_id, anio) [name: 'idx_pe_partida_anio']
+    (anio, clave)      [name: 'idx_pe_anio_clave']
+  }
+}
+
+Table productos {
+  id                          bigint       [pk, increment]
+  partida_id                  bigint       [not null, ref: > partidas.id]
+  tipo_partida_especifica_id  bigint       [not null, ref: > tipos_partida_especifica.id]
+  lote                        int
+  descripcion                 text         [not null, note: 'propuesta.descripcion']
+  marca                       varchar(120) [note: 'propuesta.marca']
+  unidad_medida               varchar(30)  [note: 'propuesta.unidad']
+  codigo                      varchar(60)  [note: 'propuesta.codigo']
+  medida                      varchar(10)  [note: 'propuesta.medida']
+  legacy_propuesta_id         bigint       [unique, note: 'propuesta.id – trazabilidad']
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (partida_id, tipo_partida_especifica_id) [name: 'idx_prod_partida_tipo']
+    codigo                                    [name: 'idx_prod_codigo']
+  }
+}
+
+Table producto_precios {
+  id              bigint        [pk, increment]
+  producto_id     bigint        [not null, ref: > productos.id]
+  anio            smallint      [not null]
+  precio_unitario decimal(12,2) [not null, note: 'propuesta.precio_unitario']
+  subtotal        decimal(14,2) [note: 'propuesta.subtotal']
+  proveedor       varchar(120)  [note: 'propuesta.proveedor']
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (producto_id, anio) [unique]
+    anio                [name: 'idx_pp_anio']
+  }
+}
+
+
+// ─── GRUPO 3: EMPLEADOS Y SOLICITUDES ───────────────────────
+
+Table empleados {
+  id               bigint       [pk, increment]
+  nue              varchar(30)  [note: 'concentrado.nue / delegacion.nue']
+  nombre           varchar(120) [note: 'concentrado.nombre_trab']
+  apellido_paterno varchar(120) [note: 'concentrado.apellp_trab']
+  apellido_materno varchar(120) [note: 'concentrado.apellm_trab']
+  dependencia_id   bigint       [ref: > dependencias.id,
+                                 note: 'via concentrado.dependencia → dependencias']
+  delegacion_id    bigint       [ref: > delegaciones.id,
+                                 note: 'via delegacion.nue → delegaciones']
+  ur               int          [note: 'concentrado.ur – histórico']
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    nue            [name: 'idx_emp_nue']
+    dependencia_id [name: 'idx_emp_dep']
+    delegacion_id  [name: 'idx_emp_del']
+    ur             [name: 'idx_emp_ur']
+  }
+}
+
+Table cupos_presupuesto {
+  id                          bigint        [pk, increment]
+  dependencia_id              bigint        [not null, ref: > dependencias.id]
+  partida_id                  bigint        [not null, ref: > partidas.id]
+  tipo_partida_especifica_id  bigint        [not null, ref: > tipos_partida_especifica.id]
+  anio                        smallint      [not null]
+  cantidad_limite             decimal(15,2) [not null]
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (dependencia_id, partida_id, tipo_partida_especifica_id, anio)
+      [unique, name: 'uq_cupo_dep_part_tipo_anio']
+  }
+}
+
+// ─── TABLA DE HECHOS ────────────────────────────────────────
+// Cada fila = 1 ítem de vestuario asignado a un empleado
+// Legacy: concentrado (una fila por empleado × producto × partida)
+//
+// ★ Las 3 FKs denormalizadas eliminan JOINs costosos
+//   en los GROUP BY de reportes de partidas
+
+Table solicitudes_vestuario {
+  id bigint [pk, increment]
+
+  // ── Relaciones principales
+  empleado_id            bigint [not null, ref: > empleados.id]
+  producto_id            bigint [not null, ref: > productos.id]
+  partida_especifica_id  bigint [ref: > partidas_especificas.id,
+                                 note: 'clave de ejercicio del ítem']
+
+  // ── ★ FKs denormalizadas (GROUP BY rápido sin JOINs)
+  dependencia_id              bigint [ref: > dependencias.id,
+                                      note: '= empleado.dependencia_id al crear registro']
+  partida_id                  bigint [ref: > partidas.id,
+                                      note: '= producto.partida_id']
+  tipo_partida_especifica_id  bigint [ref: > tipos_partida_especifica.id,
+                                      note: '= producto.tipo_partida_especifica_id']
+
+  // ── Datos de la solicitud
+  anio             smallint
+  talla            varchar(20)
+  cantidad         int           [default: 1]
+  precio_unitario  decimal(12,2) [note: 'concentrado.precio_unitario']
+  importe          decimal(14,2) [note: 'concentrado.importe']
+  iva              decimal(12,2) [note: 'concentrado.iva']
+  importe_total    decimal(14,2) [note: 'concentrado.total']
+
+  // ── Snapshots legado (trazabilidad)
+  no_partida_snapshot            int          [note: 'concentrado.no_partida']
+  clave_partida_snapshot         varchar(512) [note: 'concentrado.clave_partida']
+  clave_para_ejercicio_snapshot  varchar(512) [note: 'concentrado.clave2025']
+
+  // ── Trazabilidad
+  legacy_concentrado_id bigint [unique, note: 'concentrado.id original']
+
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (anio, dependencia_id, partida_id, tipo_partida_especifica_id)
+      [name: 'sv_resumen_idx', note: 'GROUP BY sin JOIN en reportes']
+    (empleado_id, anio) [name: 'idx_sv_emp_anio']
+    (producto_id, anio) [name: 'idx_sv_prod_anio']
+  }
+}</pre>
+</div>
+</div>
+
+<!-- ═══════════════ MAPEO LEGACY → NUEVO ═══════════════ -->
+<div id="map-panel" class="panel">
+<div style="padding:20px;">
+<p style="font-size:13px;color:#64748b;margin-bottom:16px;">Cada columna de las tablas legacy mapeada a su destino. Ning&uacute;n dato se pierde.</p>
+<table class="map">
+<thead>
+<tr>
+  <th>Tabla legacy</th>
+  <th>Columna original</th>
+  <th>Tabla nueva</th>
+  <th>Columna nueva</th>
+  <th>Notas</th>
+</tr>
+</thead>
+<tbody>
+  <!-- concentrado -->
+  <tr><td class="orig" rowspan="18">concentrado</td><td class="col">id</td><td class="new-tbl">solicitudes_vestuario</td><td class="col">legacy_concentrado_id</td><td>trazabilidad directa</td></tr>
+  <tr><td class="col">nue</td><td class="new-tbl">empleados</td><td class="col">nue</td><td>dedup por (nue+nombre+apellidos+ur+dep)</td></tr>
+  <tr><td class="col">nombre_trab</td><td class="new-tbl">empleados</td><td class="col">nombre</td><td></td></tr>
+  <tr><td class="col">apellp_trab</td><td class="new-tbl">empleados</td><td class="col">apellido_paterno</td><td></td></tr>
+  <tr><td class="col">apellm_trab</td><td class="new-tbl">empleados</td><td class="col">apellido_materno</td><td></td></tr>
+  <tr><td class="col">ur</td><td class="new-tbl">empleados + dependencias</td><td class="col">ur (ambas)</td><td>hist&oacute;rico en empleados; clave en dependencias</td></tr>
+  <tr><td class="col">dependencia</td><td class="new-tbl">dependencias</td><td class="col">nombre</td><td>fusionado con dependences.name</td></tr>
+  <tr><td class="col">ur_dependencia</td><td class="new-tbl">dependencias</td><td class="col">ur_texto</td><td></td></tr>
+  <tr><td class="col">no_partida</td><td class="new-tbl">partidas + sv snapshot</td><td class="col">no_partida + no_partida_snapshot</td><td></td></tr>
+  <tr><td class="col">partida_descripcion</td><td class="new-tbl">partidas</td><td class="col">descripcion</td><td>fallback si propuesta no tiene desc</td></tr>
+  <tr><td class="col">clave_partida</td><td class="new-tbl">partidas_por_ejercicio + sv</td><td class="col">clave_como_se_uso + clave_partida_snapshot</td><td></td></tr>
+  <tr><td class="col">clave_presupuestal</td><td class="new-tbl">partidas_por_ejercicio</td><td class="col">clave_presupuestal</td><td></td></tr>
+  <tr><td class="col">clave2025</td><td class="new-tbl">partidas_especificas + sv</td><td class="col">clave + clave_para_ejercicio_snapshot</td><td></td></tr>
+  <tr><td class="col">descripcion</td><td class="new-tbl">partidas_especificas</td><td class="col">descripcion</td><td>descripci&oacute;n de l&iacute;nea (no de partida)</td></tr>
+  <tr><td class="col">talla / cantidad</td><td class="new-tbl">solicitudes_vestuario</td><td class="col">talla / cantidad</td><td></td></tr>
+  <tr><td class="col">precio_unitario / importe / iva</td><td class="new-tbl">solicitudes_vestuario</td><td class="col">precio_unitario / importe / iva</td><td></td></tr>
+  <tr><td class="col">total</td><td class="new-tbl">solicitudes_vestuario</td><td class="col">importe_total</td><td></td></tr>
+  <tr><td class="col">(derivado)</td><td class="new-tbl">solicitudes_vestuario</td><td class="col">dependencia_id, partida_id, tipo_pe_id</td><td>&#9733; FKs denorm copiadas al crear</td></tr>
+
+  <!-- propuesta -->
+  <tr><td class="orig" rowspan="9">propuesta</td><td class="col">id</td><td class="new-tbl">productos</td><td class="col">legacy_propuesta_id</td><td>trazabilidad</td></tr>
+  <tr><td class="col">partida</td><td class="new-tbl">partidas</td><td class="col">no_partida</td><td></td></tr>
+  <tr><td class="col">partida_especifica</td><td class="new-tbl">tipos_partida_especifica</td><td class="col">codigo</td><td>244, 246, etc.</td></tr>
+  <tr><td class="col">lote</td><td class="new-tbl">productos</td><td class="col">lote</td><td></td></tr>
+  <tr><td class="col">descripcion</td><td class="new-tbl">productos + partidas</td><td class="col">descripcion</td><td>tambi&eacute;n fuente de partidas.descripcion</td></tr>
+  <tr><td class="col">marca / unidad / codigo / medida</td><td class="new-tbl">productos</td><td class="col">marca / unidad_medida / codigo / medida</td><td></td></tr>
+  <tr><td class="col">precio_unitario</td><td class="new-tbl">producto_precios</td><td class="col">precio_unitario</td><td></td></tr>
+  <tr><td class="col">subtotal</td><td class="new-tbl">producto_precios</td><td class="col">subtotal</td><td></td></tr>
+  <tr><td class="col">proveedor</td><td class="new-tbl">producto_precios</td><td class="col">proveedor</td><td></td></tr>
+
+  <!-- delegacion -->
+  <tr><td class="orig" rowspan="3">delegacion</td><td class="col">id</td><td class="new-tbl">&mdash;</td><td class="col">&mdash;</td><td>no se preserva (dato de mapeo)</td></tr>
+  <tr><td class="col">nue</td><td class="new-tbl">empleados</td><td class="col">nue &rarr; delegacion_id</td><td>se busca empleado y asigna delegaci&oacute;n</td></tr>
+  <tr><td class="col">delegacion + dependencia</td><td class="new-tbl">dependencia_delegacion</td><td class="col">delegacion_id + dependencia_id</td><td>pivot N:M</td></tr>
+
+  <!-- delegado -->
+  <tr><td class="orig" rowspan="2">delegado</td><td class="col">nombre</td><td class="new-tbl">delegados</td><td class="col">nombre_completo</td><td></td></tr>
+  <tr><td class="col">delegacion</td><td class="new-tbl">delegados</td><td class="col">delegacion_id</td><td>&#9733; FK directo (no pivot)</td></tr>
+
+  <!-- dependences -->
+  <tr><td class="orig" rowspan="2">dependences</td><td class="col">key</td><td class="new-tbl">dependencias</td><td class="col">codigo</td><td></td></tr>
+  <tr><td class="col">name</td><td class="new-tbl">dependencias</td><td class="col">nombre</td><td>fusionado con concentrado.dependencia</td></tr>
+</tbody>
+</table>
+
+<hr class="divider">
+
+<div class="tip">
+  <strong>Resumen de simplificaciones:</strong><br>
+  1. <b>delegados</b> &rarr; FK directo a delegaciones (sin pivot N:M, ya que en los datos originales cada delegado tiene una sola delegaci&oacute;n)<br>
+  2. <b>solicitudes_vestuario</b> &rarr; 3 FKs denormalizadas (dependencia_id, partida_id, tipo_partida_especifica_id) para que los reportes de partidas hagan GROUP BY sobre un &iacute;ndice compuesto de la misma tabla<br>
+  3. <b>partidas_especificas</b> &rarr; FK directo a partidas (no pasa por partidas_por_ejercicio), m&aacute;s simple para consultas de l&iacute;nea
+</div>
+
+</div>
+</div>
+
+<script>
+function show(id, tab) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  tab.classList.add('active');
+}
+
+function copyDbml() {
+  const pre = document.getElementById('dbml-text');
+  const text = pre.innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = event.target;
+    btn.textContent = '\u2713 Copiado';
+    btn.style.background = '#16a34a';
+    btn.style.color = '#fff';
+    setTimeout(() => {
+      btn.textContent = 'Copiar DBML al portapapeles';
+      btn.style.background = '';
+      btn.style.color = '';
+    }, 2000);
+  });
+}
+</script>
+</body>
+</html>

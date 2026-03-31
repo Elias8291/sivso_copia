@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head } from '@inertiajs/react';
-import { Info, MapPin, Search, SlidersHorizontal, Users } from 'lucide-react';
+import { Head, router } from '@inertiajs/react';
+import { Info, MapPin, Search, SlidersHorizontal, Users, DollarSign } from 'lucide-react';
 import React, { useState, useMemo, useCallback } from 'react';
 import { FILTERS } from './Components/constants';
 import EmployeeAccordion from './Components/EmployeeAccordion';
@@ -18,7 +18,19 @@ function computeStatus(wardrobeItems, selections) {
     return 'Pendiente';
 }
 
-export default function Index({ employees: initialEmployees, delegation_name }) {
+const fmtMoney = (v) =>
+    v != null ? Number(v).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' }) : '$0.00';
+
+export default function Index({
+    employees: initialEmployees,
+    delegation_name,
+    delegaciones = [],
+    delegacion_activa_id,
+    ejercicio,
+    bajas = { total: 0, importe: 0 },
+    dependencias = [],
+    delegaciones_por_ur = {},
+}) {
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [employees, setEmployees] = useState(initialEmployees);
@@ -31,6 +43,7 @@ export default function Index({ employees: initialEmployees, delegation_name }) 
             completed: employees.filter((e) => e.status === 'Completado').length,
             inProgress: employees.filter((e) => e.status === 'En progreso').length,
             pending: employees.filter((e) => e.status === 'Pendiente').length,
+            baja: employees.filter((e) => e.status === 'Baja').length,
         }),
         [employees]
     );
@@ -42,13 +55,14 @@ export default function Index({ employees: initialEmployees, delegation_name }) 
                 (e) =>
                     !q ||
                     e.name?.toLowerCase().includes(q) ||
-                    e.position?.toLowerCase().includes(q)
+                    e.nue?.toLowerCase().includes(q) ||
+                    e.dependencia?.toLowerCase().includes(q)
             )
             .filter((e) => statusFilter === 'all' || e.status === statusFilter);
     }, [employees, search, statusFilter]);
 
     const sortedFiltered = useMemo(() => {
-        const order = { Pendiente: 0, 'En progreso': 1, Completado: 2 };
+        const order = { Pendiente: 0, 'En progreso': 1, Completado: 2, Baja: 3 };
         return [...filtered].sort((a, b) => {
             const d = order[a.status] - order[b.status];
             if (d !== 0) return d;
@@ -58,17 +72,33 @@ export default function Index({ employees: initialEmployees, delegation_name }) 
 
     const handleSave = useCallback((empId, newSelections, onDone) => {
         setSavingId(empId);
-        setTimeout(() => {
-            setEmployees((prev) =>
-                prev.map((emp) => {
-                    if (emp.id !== empId) return emp;
-                    const newStatus = computeStatus(emp.wardrobeItems, newSelections);
-                    return { ...emp, selections: newSelections, status: newStatus };
-                })
-            );
-            setSavingId(null);
-            onDone?.();
-        }, 450);
+
+        const tallas = {};
+        for (const [solId, talla] of Object.entries(newSelections)) {
+            tallas[solId] = talla || '';
+        }
+
+        router.post(
+            route('my-delegation.save-tallas'),
+            { empleado_id: empId, tallas },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setEmployees((prev) =>
+                        prev.map((emp) => {
+                            if (emp.id !== empId) return emp;
+                            const newStatus = computeStatus(emp.wardrobeItems, newSelections);
+                            return { ...emp, selections: newSelections, status: newStatus };
+                        })
+                    );
+                    setSavingId(null);
+                    onDone?.();
+                },
+                onError: () => {
+                    setSavingId(null);
+                },
+            }
+        );
     }, []);
 
     const handleEdit = useCallback(
@@ -103,6 +133,14 @@ export default function Index({ employees: initialEmployees, delegation_name }) 
         });
     }, []);
 
+    const switchDelegacion = (delId) => {
+        router.get(
+            route('my-delegation.index'),
+            { delegacion: delId },
+            { preserveState: false }
+        );
+    };
+
     return (
         <AuthenticatedLayout
             header={
@@ -121,16 +159,33 @@ export default function Index({ employees: initialEmployees, delegation_name }) 
                             Mi delegación
                         </h2>
                         <p className="mt-1 max-w-xl text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">
-                            Cada persona tiene su propio vestuario. Usa{' '}
-                            <span className="font-medium text-zinc-600 dark:text-zinc-300">Actualizar tallas</span> en cada tarjeta
-                            para ver prendas y elegir tallas.
+                            Vestuario de tus empleados — ejercicio{' '}
+                            <span className="font-semibold text-zinc-700 dark:text-zinc-300">{ejercicio}</span>.
+                            Usa{' '}
+                            <span className="font-medium text-zinc-600 dark:text-zinc-300">Actualizar tallas</span> en cada tarjeta.
                         </p>
                     </div>
-                    <div className="inline-flex items-center gap-2 self-start rounded-lg border border-zinc-200/70 bg-white/70 px-3 py-2 dark:border-zinc-800/70 dark:bg-zinc-900/50 sm:self-auto">
-                        <MapPin className="size-4 shrink-0 text-brand-gold" strokeWidth={2} />
-                        <span className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
-                            {delegation}
-                        </span>
+                    <div className="flex items-center gap-2 self-start sm:self-auto">
+                        {delegaciones.length > 1 ? (
+                            <select
+                                value={delegacion_activa_id}
+                                onChange={(e) => switchDelegacion(e.target.value)}
+                                className="rounded-lg border border-zinc-200/70 bg-white/70 px-3 py-2 text-xs font-bold uppercase tracking-wider text-zinc-700 dark:border-zinc-800/70 dark:bg-zinc-900/50 dark:text-zinc-300"
+                            >
+                                {delegaciones.map((d) => (
+                                    <option key={d.id} value={d.id}>
+                                        {d.clave}{d.nombre ? ` — ${d.nombre}` : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        ) : (
+                            <div className="inline-flex items-center gap-2 rounded-lg border border-zinc-200/70 bg-white/70 px-3 py-2 dark:border-zinc-800/70 dark:bg-zinc-900/50">
+                                <MapPin className="size-4 shrink-0 text-brand-gold" strokeWidth={2} />
+                                <span className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
+                                    {delegation}
+                                </span>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -140,8 +195,7 @@ export default function Index({ employees: initialEmployees, delegation_name }) 
                         <span className="font-semibold text-zinc-800 dark:text-zinc-200">Cómo usar esta pantalla:</span>{' '}
                         la lista prioriza a quienes deben completar tallas. En cada tarjeta,{' '}
                         <span className="font-semibold text-zinc-700 dark:text-zinc-300">Actualizar tallas</span> abre el
-                        vestuario; los botones <span className="font-semibold text-zinc-700 dark:text-zinc-300">Editar</span> y{' '}
-                        <span className="font-semibold text-zinc-700 dark:text-zinc-300">Baja</span> son para datos generales o bajas.
+                        vestuario; al guardar, los cambios se persisten en la base de datos.
                     </p>
                 </div>
 
@@ -166,7 +220,33 @@ export default function Index({ employees: initialEmployees, delegation_name }) 
                         <span className="tabular-nums font-semibold text-zinc-800 dark:text-zinc-200">{stats.pending}</span>
                         <span className="text-zinc-500 dark:text-zinc-400">sin empezar</span>
                     </span>
+                    {stats.baja > 0 && (
+                        <span className="inline-flex items-center gap-1.5">
+                            <span className="size-1.5 rounded-full bg-red-500" />
+                            <span className="tabular-nums font-semibold text-zinc-800 dark:text-zinc-200">{stats.baja}</span>
+                            <span className="text-zinc-500 dark:text-zinc-400">bajas</span>
+                        </span>
+                    )}
                 </div>
+
+                {bajas.total > 0 && (
+                    <div className="flex items-center gap-3 rounded-xl border border-amber-200/60 bg-amber-50/50 px-4 py-3 dark:border-amber-800/40 dark:bg-amber-900/10">
+                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-500/15">
+                            <DollarSign className="size-4.5 text-amber-600 dark:text-amber-400" strokeWidth={2} />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700/80 dark:text-amber-400/80">
+                                Disponible por bajas
+                            </p>
+                            <p className="text-lg font-bold tabular-nums text-amber-800 dark:text-amber-300">
+                                {fmtMoney(bajas.importe)}
+                            </p>
+                        </div>
+                        <span className="ml-auto rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-bold tabular-nums text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">
+                            {bajas.total} {bajas.total === 1 ? 'producto' : 'productos'} en baja
+                        </span>
+                    </div>
+                )}
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                     <div className="relative w-full sm:max-w-sm">
@@ -178,7 +258,7 @@ export default function Index({ employees: initialEmployees, delegation_name }) 
                             type="text"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Buscar por nombre o puesto…"
+                            placeholder="Buscar por nombre o NUE…"
                             className="w-full rounded-lg border border-zinc-200/70 bg-white/90 py-2.5 pl-9 pr-3 text-[13px] text-zinc-900 outline-none transition-all placeholder:text-zinc-400 focus:border-brand-gold/50 focus:ring-2 focus:ring-brand-gold/15 dark:border-zinc-800/70 dark:bg-zinc-900/70 dark:text-zinc-100 dark:placeholder:text-zinc-500"
                         />
                     </div>
@@ -219,6 +299,10 @@ export default function Index({ employees: initialEmployees, delegation_name }) 
                                 key={employee.id}
                                 employee={employee}
                                 delegation={delegation}
+                                dependencias={dependencias}
+                                delegaciones={delegaciones}
+                                delegacionesPorUr={delegaciones_por_ur}
+                                delegacionActivaId={delegacion_activa_id}
                                 onSave={handleSave}
                                 onEdit={handleEdit}
                                 onRequestBaja={handleRequestBaja}

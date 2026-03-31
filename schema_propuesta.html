@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Propuesta de Esquema SIVSO – copiasivso</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+
+  header { background: #1e2130; border-bottom: 1px solid #2d3748; padding: 16px 24px; display: flex; align-items: center; gap: 12px; }
+  header h1 { font-size: 18px; font-weight: 700; color: #fff; }
+  header span { font-size: 12px; color: #64748b; background: #2d3748; padding: 3px 8px; border-radius: 999px; }
+
+  .tabs { display: flex; gap: 2px; background: #1e2130; padding: 0 24px; border-bottom: 1px solid #2d3748; }
+  .tab { padding: 10px 16px; font-size: 13px; cursor: pointer; color: #94a3b8; border-bottom: 2px solid transparent; transition: all .2s; }
+  .tab.active { color: #60a5fa; border-bottom-color: #60a5fa; }
+  .tab:hover:not(.active) { color: #cbd5e1; }
+
+  .panel { display: none; padding: 24px; }
+  .panel.active { display: block; }
+
+  /* --- Schema diagram --- */
+  .schema-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+
+  .table-card {
+    background: #1a1f2e;
+    border: 1px solid #2d3748;
+    border-radius: 10px;
+    overflow: hidden;
+    transition: box-shadow .2s;
+  }
+  .table-card:hover { box-shadow: 0 0 0 1px #60a5fa55; }
+  .table-card.highlight { border-color: #f59e0b; }
+  .table-card.new-col { border-color: #22c55e; }
+
+  .table-card .header {
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .table-card .header .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot-dim { background: #60a5fa; }
+  .dot-fact { background: #f59e0b; }
+  .dot-pivot { background: #a78bfa; }
+  .dot-new { background: #22c55e; }
+
+  .table-card .fields { padding: 0 0 8px; }
+  .field {
+    display: flex; align-items: center; gap: 6px;
+    padding: 3px 12px;
+    font-size: 12px;
+    color: #94a3b8;
+    line-height: 1.4;
+  }
+  .field .badge {
+    font-size: 9px; padding: 1px 5px; border-radius: 4px; font-weight: 700;
+    flex-shrink: 0; letter-spacing: .3px;
+  }
+  .pk { background: #1e3a5f; color: #60a5fa; }
+  .fk { background: #2d1b69; color: #a78bfa; }
+  .idx { background: #1a2e1a; color: #4ade80; }
+  .new { background: #14532d; color: #4ade80; }
+  .snap { background: #422006; color: #fb923c; }
+  .leg { background: #1c1917; color: #a8a29e; }
+
+  .field.added { background: #052e16; border-left: 3px solid #22c55e; padding-left: 9px; color: #bbf7d0; }
+
+  /* --- Comparison --- */
+  .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 800px) { .compare-grid { grid-template-columns: 1fr; } }
+
+  .compare-box { background: #1a1f2e; border: 1px solid #2d3748; border-radius: 10px; padding: 20px; }
+  .compare-box h3 { font-size: 14px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .compare-box pre {
+    font-size: 12px; line-height: 1.7; background: #0f1117;
+    padding: 14px; border-radius: 8px; overflow-x: auto; color: #94a3b8;
+    border: 1px solid #2d3748;
+  }
+  pre .hl { color: #fbbf24; }
+  pre .ok { color: #4ade80; }
+  pre .comment { color: #475569; }
+  pre .kw { color: #60a5fa; }
+  pre .str { color: #f472b6; }
+
+  .badge-before { background: #7f1d1d; color: #fca5a5; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+  .badge-after  { background: #14532d; color: #86efac; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+
+  /* --- Legend --- */
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #94a3b8; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* --- Migration tab --- */
+  .migration-block { background: #1a1f2e; border: 1px solid #2d3748; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+  .migration-block h3 { font-size: 14px; font-weight: 700; margin-bottom: 4px; color: #60a5fa; }
+  .migration-block p { font-size: 12px; color: #64748b; margin-bottom: 12px; }
+  .migration-block pre { font-size: 12px; line-height: 1.7; background: #0f1117; padding: 14px; border-radius: 8px; overflow-x: auto; color: #94a3b8; border: 1px solid #2d3748; }
+
+  /* --- Tips --- */
+  .tip { background: #1a2535; border: 1px solid #1e3a5f; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; font-size: 13px; line-height: 1.6; color: #93c5fd; }
+  .tip strong { color: #60a5fa; }
+
+  .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #475569; margin: 20px 0 10px; font-weight: 700; }
+  .divider { border: none; border-top: 1px solid #1e293b; margin: 20px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Esquema SIVSO · copiasivso</h1>
+  <span>propuesta simplificada</span>
+  <span style="margin-left:auto; color:#22c55e;">1 migración · sin pérdida de datos</span>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="show('schema')">Esquema actual + cambio</div>
+  <div class="tab" onclick="show('compare')">Antes / Después (query)</div>
+  <div class="tab" onclick="show('migration')">Migración PHP</div>
+  <div class="tab" onclick="show('model')">Modelo + Support</div>
+</div>
+
+<!-- ====================== SCHEMA ====================== -->
+<div id="schema" class="panel active">
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#60a5fa"></div> Dimensión / Catálogo</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div> Tabla de hechos (fact)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#a78bfa"></div> Pivot / relación N:M</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div> Columnas nuevas (1 migración)</div>
+  </div>
+
+  <div class="schema-grid">
+
+    <!-- tipos_partida_especifica -->
+    <div class="table-card">
+      <div class="header"><div class="dot dot-dim"></div>tipos_partida_especifica</div>
+      <div class="fields">
+        <div class="field"><span class="badge pk">PK</span> id</div>
+        <div class="field"><span class="badge idx">UQ</span> codigo</div>
+        <div class="field">nombre</div>
+      </div>
+    </div>
+
+    <!-- dependencias -->
+    <div class="table-card">
+      <div class="header"><div class="dot dot-dim"></div>dependencias</div>
+      <div class="fields">
+        <div class="field"><span class="badge pk">PK</span> id</div>
+        <div class="field"><span class="badge idx">IDX</span> ur</div>
+        <div class="field">nombre</div>
+        <div class="field">ur_texto</div>
+      </div>
+    </div>
+
+    <!-- delegaciones -->
+    <div class="table-card">
+      <div class="header"><div class="dot dot-dim"></div>delegaciones</div>
+      <div class="fields">
+        <div class="field"><span class="badge pk">PK</span> id</div>
+        <div class="field"><span class="badge idx">UQ</span> clave</div>
+        <div class="field">nombre</div>
+      </div>
+    </div>
+
+    <!-- delegados -->
+    <div class="table-card">
+      <div class="header"><div class="dot dot-dim"></div>delegados</div>
+      <div class="fields">
+        <div class="field"><span class="badge pk">PK</span> id</div>
+        <div class="field">nombre_completo</div>
+      </div>
+    </div>
+
+    <!-- dependencia_delegacion -->
+    <div class="table-card">
+      <div class="header"><div class="dot dot-pivot"></div>dependencia_delegacion</div>
+      <div class="fields">
+        <div class="field"><span class="badge fk">FK</span> dependencia_id</div>
+        <div class="field"><span class="badge fk">FK</span> delegacion_id</div>
+      </div>
+    </div>
+
+    <!-- delegado_delegacion -->
+    <div class="table-card">
+      <div class="header"><div class="dot dot-pivot"></div>delegado_delegacion</div>
+      <div class="fields">
+        <div class="field"><span class="badge fk">FK</span> delegado_id</div>
+        <div class="field"><span class="badge fk">FK</span> delegacion_id</div>
+      </div>
+    </div>
+
+    <!-- partidas -->
+    <div class="table-card">
+      <div class="header"><div class="dot dot-dim"></div>partidas</div>
+      <div class="fields">
+        <div class="field"><span class="badge pk">PK</span> id</div>
+        <div class="field"><span class="badge idx">UQ</span> no_partida</div>
+        <div class="field">descripcion</div>
+      </div>
+    </div>
+
+    <!-- partidas_por_ejercicio -->
+    <div class="table-card">
+      <div class="header"><div class="dot dot-dim"></div>partidas_por_ejercicio</div>
+      <div class="fields">
+        <div class="field"><span class="badge pk">PK</span> id</div>
+        <div class="field"><span class="badge fk">FK</span> partida_id</div>
+        <div class="field"><span class="badge idx">IDX</span> anio</div>
+        <div class="field"><span class="badge snap">SNAP</span> no_partida_snapshot</div>
+        <div class="field">clave_como_se_uso</div>
+        <div class="field">clave_para_ejercicio</div>
+        <div class="field">clave_presupuestal</div>
+      </div>
+    </div>
+
+    <!-- partidas_especificas -->
+    <div class="table-card">
+      <div class="header"><div class="dot dot-dim"></div>partidas_especificas</div>
+      <div class="fields">
+        <div class="field"><span class="badge pk">PK</span> id</div>
+        <div class="field"><span class="badge fk">FK</span> partida_id</div>
+        <div class="field"><span class="badge idx">IDX</span> anio</div>
+        <div class="field">clave</div>
+        <div class="field">descripcion</div>
+        <div class="field">clave_partida</div>
+      </div>
+    </div>
+
+    <!-- productos -->
+    <div class="table-card">
+      <div class="header"><div class="dot dot-dim"></div>productos</div>
+      <div class="fields">
+        <div class="field"><span class="badge pk">PK</span> id</div>
+        <div class="field"><span class="badge fk">FK</span> partida_id</div>
+        <div class="field"><span class="badge fk">FK</span> tipo_partida_especifica_id</div>
+        <div class="field">descripcion</div>
+        <div class="field">marca · unidad_medida · codigo</div>
+        <div class="field"><span class="badge leg">LEGACY</span> legacy_propuesta_id</div>
+      </div>
+    </div>
+
+    <!-- producto_precios -->
+    <div class="table-card">
+      <div class="header"><div class="dot dot-dim"></div>producto_precios</div>
+      <div class="fields">
+        <div class="field"><span class="badge pk">PK</span> id</div>
+        <div class="field"><span class="badge fk">FK</span> producto_id</div>
+        <div class="field"><span class="badge idx">UQ</span> (producto_id, anio)</div>
+        <div class="field">precio_unitario · proveedor</div>
+      </div>
+    </div>
+
+    <!-- cupos_presupuesto -->
+    <div class="table-card">
+      <div class="header"><div class="dot dot-dim"></div>cupos_presupuesto</div>
+      <div class="fields">
+        <div class="field"><span class="badge pk">PK</span> id</div>
+        <div class="field"><span class="badge fk">FK</span> dependencia_id</div>
+        <div class="field"><span class="badge fk">FK</span> partida_id</div>
+        <div class="field"><span class="badge fk">FK</span> tipo_partida_especifica_id</div>
+        <div class="field"><span class="badge idx">IDX</span> anio</div>
+        <div class="field">cantidad_limite</div>
+      </div>
+    </div>
+
+    <!-- empleados -->
+    <div class="table-card">
+      <div class="header"><div class="dot dot-dim"></div>empleados</div>
+      <div class="fields">
+        <div class="field"><span class="badge pk">PK</span> id</div>
+        <div class="field"><span class="badge idx">IDX</span> nue</div>
+        <div class="field"><span class="badge fk">FK</span> dependencia_id</div>
+        <div class="field"><span class="badge fk">FK</span> delegacion_id</div>
+        <div class="field">nombre · apellido_paterno · apellido_materno</div>
+        <div class="field">ur</div>
+      </div>
+    </div>
+
+    <!-- solicitudes_vestuario — FACT TABLE, changed -->
+    <div class="table-card new-col" style="grid-column: span 2;">
+      <div class="header"><div class="dot dot-fact"></div>solicitudes_vestuario &nbsp;<span style="font-size:10px;color:#22c55e;font-weight:400;">← CAMBIO AQUÍ (1 migración)</span></div>
+      <div class="fields" style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px;">
+        <div>
+          <div class="field"><span class="badge pk">PK</span> id</div>
+          <div class="field"><span class="badge fk">FK</span> empleado_id → empleados</div>
+          <div class="field"><span class="badge fk">FK</span> producto_id → productos</div>
+          <div class="field"><span class="badge fk">FK</span> partida_especifica_id → partidas_especificas</div>
+          <div class="field added"><span class="badge new">NUEVO</span> dependencia_id → dependencias</div>
+          <div class="field added"><span class="badge new">NUEVO</span> partida_id → partidas</div>
+          <div class="field added"><span class="badge new">NUEVO</span> tipo_partida_especifica_id → tipos_pe</div>
+        </div>
+        <div>
+          <div class="field"><span class="badge idx">IDX</span> anio</div>
+          <div class="field">talla · cantidad</div>
+          <div class="field">precio_unitario · importe · iva · importe_total</div>
+          <div class="field added"><span class="badge new">NUEVO</span> índice (anio, dependencia_id, partida_id, tipo_pe_id)</div>
+          <div class="field"><span class="badge snap">SNAP</span> no_partida_snapshot</div>
+          <div class="field"><span class="badge snap">SNAP</span> clave_partida_snapshot</div>
+          <div class="field"><span class="badge leg">LEGACY</span> legacy_concentrado_id</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <hr class="divider">
+  <div class="tip">
+    <strong>¿Por qué solo 3 columnas?</strong><br>
+    El único problema real del esquema actual es que para agregar <em>solicitudes_vestuario</em> por dependencia/partida/tipo hay que hacer JOIN con <em>empleados</em> (→ dependencia_id) y <em>productos</em> (→ partida_id + tipo_id). Al guardar esas 3 FKs directamente en la tabla de hechos, la consulta de partidas se convierte en <strong>3 LEFT JOINs solo para mostrar etiquetas</strong>, y el GROUP BY cae completamente en un índice compuesto. Cero pérdida de datos, cero cambio de flujo.
+  </div>
+  <div class="tip">
+    <strong>¿Qué NO cambia?</strong><br>
+    Todas las tablas existentes, todas las FKs existentes, los snapshots de legado, los modelos actuales, las rutas, los controladores — todo sigue funcionando. Solo se añaden columnas y se simplifica la clase Support.
+  </div>
+</div>
+
+<!-- ====================== COMPARE ====================== -->
+<div id="compare" class="panel">
+  <div class="compare-grid">
+
+    <div class="compare-box">
+      <h3><span class="badge-before">ANTES</span> &nbsp;Query actual (muchos JOINs + GROUP BY cruzado)</h3>
+      <pre><span class="comment">-- 5 tablas para llegar al GROUP BY correcto</span>
+<span class="kw">SELECT</span>
+  e.dependencia_id,
+  <span class="kw">MAX</span>(d.nombre)      <span class="kw">AS</span> dep_nombre,
+  p.partida_id,
+  <span class="kw">MAX</span>(pa.no_partida) <span class="kw">AS</span> no_partida,
+  p.tipo_partida_especifica_id,
+  <span class="kw">MAX</span>(tpe.codigo)   <span class="kw">AS</span> tipo_codigo,
+  <span class="kw">COUNT</span>(*)          <span class="kw">AS</span> lineas,
+  <span class="kw">SUM</span>(s.importe_total) <span class="kw">AS</span> importe
+<span class="kw">FROM</span> solicitudes_vestuario s
+<span class="hl">JOIN empleados   e  ON e.id  = s.empleado_id</span>
+<span class="hl">JOIN productos   p  ON p.id  = s.producto_id</span>
+<span class="hl">JOIN partidas    pa ON pa.id = p.partida_id</span>
+<span class="hl">LEFT JOIN dependencias d  ON d.id  = e.dependencia_id</span>
+<span class="hl">LEFT JOIN tipos_partida_especifica tpe
+          ON tpe.id = p.tipo_partida_especifica_id</span>
+<span class="kw">WHERE</span> s.anio = ?
+<span class="kw">GROUP BY</span>
+  <span class="hl">e.dependencia_id,</span>
+  <span class="hl">p.partida_id,</span>
+  <span class="hl">p.tipo_partida_especifica_id</span></pre>
+      <p style="font-size:12px;color:#64748b;margin-top:8px;">GROUP BY sobre columnas de tablas distintas → MySQL no puede usar índice de solicitudes_vestuario. Full scan implícito.</p>
+    </div>
+
+    <div class="compare-box">
+      <h3><span class="badge-after">DESPUÉS</span> &nbsp;Query simplificada (GROUP BY en índice propio)</h3>
+      <pre><span class="comment">-- 3 LEFT JOINs solo para etiquetas (display)</span>
+<span class="kw">SELECT</span>
+  <span class="ok">s.dependencia_id,</span>
+  <span class="ok">s.partida_id,</span>
+  <span class="ok">s.tipo_partida_especifica_id,</span>
+  d.nombre     <span class="kw">AS</span> dep_nombre,
+  pa.no_partida,
+  tpe.codigo   <span class="kw">AS</span> tipo_codigo,
+  <span class="kw">COUNT</span>(*)          <span class="kw">AS</span> lineas,
+  <span class="kw">SUM</span>(s.importe_total) <span class="kw">AS</span> importe
+<span class="kw">FROM</span> solicitudes_vestuario s
+<span class="ok">LEFT JOIN dependencias d  ON d.id  = s.dependencia_id</span>
+<span class="ok">LEFT JOIN partidas    pa  ON pa.id = s.partida_id</span>
+<span class="ok">LEFT JOIN tipos_partida_especifica tpe
+          ON tpe.id = s.tipo_partida_especifica_id</span>
+<span class="kw">WHERE</span> s.anio = ?
+<span class="kw">GROUP BY</span>
+  <span class="ok">s.dependencia_id,</span>
+  <span class="ok">s.partida_id,</span>
+  <span class="ok">s.tipo_partida_especifica_id</span>
+<span class="comment">-- ↑ todo en el índice compuesto de la misma tabla</span></pre>
+      <p style="font-size:12px;color:#4ade80;margin-top:8px;">GROUP BY sobre columnas de la misma tabla → MySQL usa el índice compuesto (anio, dependencia_id, partida_id, tipo_pe_id). Mucho más rápido.</p>
+    </div>
+
+  </div>
+
+  <hr class="divider">
+
+  <div class="section-title">Diferencias en el modelo PHP</div>
+  <div class="compare-grid">
+    <div class="compare-box">
+      <h3><span class="badge-before">ANTES</span> SolicitudVestuario – relaciones</h3>
+      <pre><span class="comment">// Para llegar a dependencia hay que pasar por empleado</span>
+$sol->empleado->dependencia->nombre;
+
+<span class="comment">// Para llegar a partida hay que pasar por producto</span>
+$sol->producto->partida->no_partida;</pre>
+    </div>
+    <div class="compare-box">
+      <h3><span class="badge-after">DESPUÉS</span> SolicitudVestuario – acceso directo</h3>
+      <pre><span class="comment">// Acceso directo (1 query, sin cadena)</span>
+$sol->dependencia->nombre;
+$sol->partida->no_partida;
+$sol->tipoPartidaEspecifica->codigo;
+
+<span class="comment">// Los originales siguen funcionando igual</span>
+$sol->empleado->dependencia->nombre; <span class="comment">// ✓ OK</span>
+$sol->producto->partida->no_partida; <span class="comment">// ✓ OK</span></pre>
+    </div>
+  </div>
+</div>
+
+<!-- ====================== MIGRATION ====================== -->
+<div id="migration" class="panel">
+
+  <div class="migration-block">
+    <h3>Migración: <code>2026_03_30_200000_add_denorm_fks_to_solicitudes_vestuario.php</code></h3>
+    <p>Una sola migración que agrega 3 FKs + 1 índice compuesto. Reversible con <code>down()</code>.</p>
+    <pre><span class="kw">return new class extends Migration
+{</span>
+    <span class="kw">protected</span> $connection = <span class="str">'copiasivso'</span>;
+
+    <span class="kw">public function</span> up(): void
+    {
+        Schema::connection($this->connection)
+            ->table(<span class="str">'solicitudes_vestuario'</span>, <span class="kw">function</span> (Blueprint $table) {
+
+                <span class="comment">// 1. dependencia_id: copiado de empleado.dependencia_id</span>
+                $table->foreignId(<span class="str">'dependencia_id'</span>)
+                    ->nullable()->after(<span class="str">'partida_especifica_id'</span>)
+                    ->constrained(<span class="str">'dependencias'</span>)->nullOnDelete();
+
+                <span class="comment">// 2. partida_id: copiado de producto.partida_id</span>
+                $table->foreignId(<span class="str">'partida_id'</span>)
+                    ->nullable()->after(<span class="str">'dependencia_id'</span>)
+                    ->constrained(<span class="str">'partidas'</span>)->nullOnDelete();
+
+                <span class="comment">// 3. tipo_partida_especifica_id: copiado de producto.tipo_partida_especifica_id</span>
+                $table->foreignId(<span class="str">'tipo_partida_especifica_id'</span>)
+                    ->nullable()->after(<span class="str">'partida_id'</span>)
+                    ->constrained(<span class="str">'tipos_partida_especifica'</span>)->nullOnDelete();
+
+                <span class="comment">// Índice compuesto para GROUP BY rápido</span>
+                $table->index(
+                    [<span class="str">'anio'</span>, <span class="str">'dependencia_id'</span>, <span class="str">'partida_id'</span>, <span class="str">'tipo_partida_especifica_id'</span>],
+                    <span class="str">'sv_anio_dep_part_tipo_idx'</span>
+                );
+            });
+
+        <span class="comment">// Rellenar automáticamente con datos existentes</span>
+        DB::connection($this->connection)->statement(<span class="str">'
+            UPDATE solicitudes_vestuario sv
+            JOIN empleados e ON e.id = sv.empleado_id
+            JOIN productos p ON p.id = sv.producto_id
+            SET
+                sv.dependencia_id            = e.dependencia_id,
+                sv.partida_id                = p.partida_id,
+                sv.tipo_partida_especifica_id = p.tipo_partida_especifica_id
+        '</span>);
+    }
+
+    <span class="kw">public function</span> down(): void
+    {
+        Schema::connection($this->connection)
+            ->table(<span class="str">'solicitudes_vestuario'</span>, <span class="kw">function</span> (Blueprint $table) {
+                $table->dropIndex(<span class="str">'sv_anio_dep_part_tipo_idx'</span>);
+                $table->dropConstrainedForeignId(<span class="str">'tipo_partida_especifica_id'</span>);
+                $table->dropConstrainedForeignId(<span class="str">'partida_id'</span>);
+                $table->dropConstrainedForeignId(<span class="str">'dependencia_id'</span>);
+            });
+    }
+};</pre>
+  </div>
+
+  <div class="tip">
+    <strong>El UPDATE al final de up()</strong> rellena las columnas con los datos actuales en la base. Si corres la migración en una base vacía (o de prueba) simplemente no hace nada. Cuando se importe la data legacy, el proceso de importación debe setear estas 3 columnas igual que hace con el resto.
+  </div>
+</div>
+
+<!-- ====================== MODEL ====================== -->
+<div id="model" class="panel">
+
+  <div class="section-title">SolicitudVestuario.php – actualizar</div>
+  <div class="migration-block">
+    <pre><span class="kw">protected</span> $fillable = [
+    <span class="str">'empleado_id'</span>, <span class="str">'producto_id'</span>, <span class="str">'partida_especifica_id'</span>,
+    <span class="comment">// ↓ NUEVOS</span>
+    <span class="ok">'dependencia_id'</span>, <span class="ok">'partida_id'</span>, <span class="ok">'tipo_partida_especifica_id'</span>,
+    <span class="str">'anio'</span>, <span class="str">'talla'</span>, <span class="str">'cantidad'</span>,
+    <span class="str">'precio_unitario'</span>, <span class="str">'importe'</span>, <span class="str">'iva'</span>, <span class="str">'importe_total'</span>,
+    <span class="str">'no_partida_snapshot'</span>, <span class="str">'clave_partida_snapshot'</span>, <span class="str">'clave_para_ejercicio_snapshot'</span>,
+    <span class="str">'legacy_concentrado_id'</span>,
+];
+
+<span class="comment">// Relaciones NUEVAS (acceso directo, sin cadena)</span>
+<span class="kw">public function</span> dependencia(): BelongsTo
+{
+    <span class="kw">return</span> $this->belongsTo(Dependencia::class, <span class="str">'dependencia_id'</span>);
+}
+
+<span class="kw">public function</span> partida(): BelongsTo
+{
+    <span class="kw">return</span> $this->belongsTo(Partida::class, <span class="str">'partida_id'</span>);
+}
+
+<span class="kw">public function</span> tipoPartidaEspecifica(): BelongsTo
+{
+    <span class="kw">return</span> $this->belongsTo(TipoPartidaEspecifica::class, <span class="str">'tipo_partida_especifica_id'</span>);
+}
+
+<span class="comment">// Relaciones EXISTENTES (siguen igual)</span>
+<span class="kw">public function</span> empleado(): BelongsTo { ... }
+<span class="kw">public function</span> producto(): BelongsTo { ... }
+<span class="kw">public function</span> partidaEspecifica(): BelongsTo { ... }
+
+<span class="comment">// Helper: rellena las 3 FKs desde las relaciones existentes</span>
+<span class="kw">public function</span> syncDenormFks(): void
+{
+    $this->dependencia_id            = $this->empleado?->dependencia_id;
+    $this->partida_id                = $this->producto?->partida_id;
+    $this->tipo_partida_especifica_id = $this->producto?->tipo_partida_especifica_id;
+}</pre>
+  </div>
+
+  <div class="section-title">CopiasivsoVestuarioPartidasResumen.php – query simplificada</div>
+  <div class="migration-block">
+    <pre>$rows = $cx->table(<span class="str">'solicitudes_vestuario as s'</span>)
+    <span class="comment">// Solo JOINs para etiquetas (display), NO para filtrar ni agrupar</span>
+    ->leftJoin(<span class="str">'dependencias as d'</span>,   <span class="str">'d.id'</span>,   <span class="str">'='</span>, <span class="ok">'s.dependencia_id'</span>)
+    ->leftJoin(<span class="str">'partidas as pa'</span>,         <span class="str">'pa.id'</span>,  <span class="str">'='</span>, <span class="ok">'s.partida_id'</span>)
+    ->leftJoin(<span class="str">'tipos_partida_especifica as tpe'</span>, <span class="str">'tpe.id'</span>, <span class="str">'='</span>, <span class="ok">'s.tipo_partida_especifica_id'</span>)
+    ->where(<span class="str">'s.anio'</span>, $anio)
+    ->groupBy(<span class="ok">'s.dependencia_id'</span>, <span class="ok">'s.partida_id'</span>, <span class="ok">'s.tipo_partida_especifica_id'</span>)
+    ->selectRaw(<span class="str">'
+        s.dependencia_id,
+        COALESCE(MAX(d.nombre), "Sin dependencia") as dependencia_nombre,
+        s.partida_id,
+        MAX(pa.no_partida)  as no_partida,
+        MAX(pa.descripcion) as partida_descripcion,
+        s.tipo_partida_especifica_id,
+        MAX(tpe.codigo) as tipo_codigo,
+        MAX(tpe.nombre) as tipo_nombre,
+        COUNT(*)                              as lineas,
+        COALESCE(SUM(s.importe_total), 0)     as importe
+    '</span>)
+    ->get();
+
+<span class="comment">// El PHP de agrupación (buckets) queda IGUAL — solo cambian los nombres de columna</span></pre>
+  </div>
+
+  <div class="tip">
+    <strong>Cero cambio en el frontend.</strong> La estructura de datos que devuelve <code>forAnio()</code> es idéntica — mismas keys, mismo orden. El componente <code>Partidas/Index.jsx</code> no necesita ningún cambio.
+  </div>
+  <div class="tip">
+    <strong>¿Y si un empleado cambia de dependencia?</strong> Las 3 columnas denormalizadas capturan el valor <em>al momento del registro</em>, que es exactamente lo que quieres para reportes históricos. Si quieres el valor actual, siempre puedes seguir la cadena <code>$sol->empleado->dependencia</code>.
+  </div>
+</div>
+
+<script>
+function show(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

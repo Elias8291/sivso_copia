@@ -3,6 +3,7 @@ export const FILTERS = [
     { label: 'Por terminar', value: 'En progreso' },
     { label: 'Sin empezar',  value: 'Pendiente' },
     { label: 'Listos',       value: 'Completado' },
+    { label: 'Bajas',        value: 'Baja' },
 ];
 
 /** @todo conectar con backend */

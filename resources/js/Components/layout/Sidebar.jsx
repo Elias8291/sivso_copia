@@ -1,7 +1,7 @@
 import { Link } from '@inertiajs/react';
 import { 
     ChevronLeft, ChevronRight, LayoutDashboard, LogOut, User, Users, 
-    MapPin, ShieldCheck, Building2, Users2, Package, ListTree, Calendar, Key
+    MapPin, ShieldCheck, Building2, Users2, Package, ListTree, Calendar, Key, FileText
 } from 'lucide-react';
 
 export default function Sidebar({
@@ -119,13 +119,17 @@ export default function Sidebar({
                             <Users2 className={iconClass(route().current('empleados.*'))} strokeWidth={2} aria-hidden />
                             <span className={collapsed ? 'lg:hidden' : ''}>Empleados</span>
                         </Link>
-                        <Link href="#" onClick={handleNav} className={navLink(false)} title="Productos">
-                            <Package className={iconClass(false)} strokeWidth={2} aria-hidden />
+                        <Link href={route('productos.index')} onClick={handleNav} className={navLink(route().current('productos.*'))} title="Productos">
+                            <Package className={iconClass(route().current('productos.*'))} strokeWidth={2} aria-hidden />
                             <span className={collapsed ? 'lg:hidden' : ''}>Productos</span>
                         </Link>
-                        <Link href="#" onClick={handleNav} className={navLink(false)} title="Partidas">
-                            <ListTree className={iconClass(false)} strokeWidth={2} aria-hidden />
+                        <Link href={route('partidas.index')} onClick={handleNav} className={navLink(route().current('partidas.*'))} title="Partidas">
+                            <ListTree className={iconClass(route().current('partidas.*'))} strokeWidth={2} aria-hidden />
                             <span className={collapsed ? 'lg:hidden' : ''}>Partidas</span>
+                        </Link>
+                        <Link href={route('partidas-especificas.index')} onClick={handleNav} className={navLink(route().current('partidas-especificas.*'))} title="Líneas Presupuestales">
+                            <FileText className={iconClass(route().current('partidas-especificas.*'))} strokeWidth={2} aria-hidden />
+                            <span className={collapsed ? 'lg:hidden' : ''}>Líneas Presupuestales</span>
                         </Link>
                     </nav>
 

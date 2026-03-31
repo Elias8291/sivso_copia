@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flujo de Asignación de Productos – SIVSO</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+
+  header { background: #1e2130; border-bottom: 1px solid #2d3748; padding: 16px 24px; }
+  header h1 { font-size: 18px; font-weight: 700; color: #fff; }
+  header p { font-size: 12px; color: #64748b; margin-top: 4px; }
+
+  .tabs { display: flex; gap: 2px; background: #1e2130; padding: 0 24px; border-bottom: 1px solid #2d3748; overflow-x: auto; }
+  .tab { padding: 10px 16px; font-size: 13px; cursor: pointer; color: #94a3b8; border-bottom: 2px solid transparent; transition: all .2s; white-space: nowrap; }
+  .tab.active { color: #60a5fa; border-bottom-color: #60a5fa; }
+  .tab:hover:not(.active) { color: #cbd5e1; }
+
+  .panel { display: none; padding: 24px; max-width: 1200px; margin: 0 auto; }
+  .panel.active { display: block; }
+
+  .card { background: #1a1f2e; border: 1px solid #2d3748; border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+  .card h3 { font-size: 15px; font-weight: 700; margin-bottom: 10px; color: #e2e8f0; }
+  .card p { font-size: 13px; line-height: 1.7; color: #94a3b8; margin-bottom: 8px; }
+  .card ul { margin-left: 20px; font-size: 13px; line-height: 1.8; color: #94a3b8; }
+  .card code { background: #0f1117; padding: 2px 6px; border-radius: 4px; font-size: 12px; color: #60a5fa; }
+
+  .tip { background: #1a2535; border: 1px solid #1e3a5f; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; font-size: 13px; line-height: 1.6; color: #93c5fd; }
+  .tip strong { color: #60a5fa; }
+  .tip.warn { background: #2a1f15; border-color: #92400e; color: #fbbf24; }
+  .tip.warn strong { color: #f59e0b; }
+  .tip.ok { background: #0a2015; border-color: #166534; color: #86efac; }
+  .tip.ok strong { color: #22c55e; }
+
+  .divider { border: none; border-top: 1px solid #1e293b; margin: 20px 0; }
+  .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #475569; margin: 20px 0 10px; font-weight: 700; }
+
+  .flow { font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 13px; line-height: 1.9; background: #0f1117; border: 1px solid #2d3748; border-radius: 10px; padding: 20px; margin: 16px 0; overflow-x: auto; color: #94a3b8; white-space: pre; }
+  .flow .step { color: #60a5fa; font-weight: 700; }
+  .flow .action { color: #22c55e; }
+  .flow .data { color: #fbbf24; }
+  .flow .note { color: #64748b; font-style: italic; }
+  .flow .arr { color: #f59e0b; }
+  .flow .warn { color: #f87171; }
+  .flow .role { color: #c084fc; font-weight: 700; }
+
+  .timeline { display: flex; gap: 0; margin: 20px 0; overflow-x: auto; padding-bottom: 8px; }
+  .tl-step { flex: 1; min-width: 180px; position: relative; padding: 16px; }
+  .tl-step::before { content: ''; position: absolute; top: 40px; left: 0; right: 0; height: 3px; background: #2d3748; }
+  .tl-step:first-child::before { left: 50%; }
+  .tl-step:last-child::before { right: 50%; }
+  .tl-dot { width: 24px; height: 24px; border-radius: 50%; margin: 24px auto 12px; position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; }
+  .tl-step h4 { text-align: center; font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+  .tl-step p { text-align: center; font-size: 11px; color: #64748b; line-height: 1.5; }
+
+  .state-diagram { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 16px 0; }
+  .state-box { border: 2px solid; border-radius: 10px; padding: 14px; text-align: center; }
+  .state-box h4 { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+  .state-box p { font-size: 11px; line-height: 1.5; }
+  .state-box .arrow { font-size: 18px; margin-top: 8px; }
+
+  pre.code { font-size: 12px; line-height: 1.7; background: #0f1117; padding: 14px; border-radius: 8px; overflow-x: auto; color: #94a3b8; border: 1px solid #2d3748; white-space: pre-wrap; }
+  pre .kw { color: #60a5fa; }
+  pre .str { color: #f472b6; }
+  pre .ok { color: #4ade80; }
+  pre .hl { color: #fbbf24; }
+  pre .comment { color: #475569; }
+
+  .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .compare-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Flujo de Asignación de Productos – SIVSO</h1>
+  <p>Cómo el delegado selecciona productos, pre-muestreo, muestreo, sustituciones y año nuevo</p>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="show('proceso')">1. El Proceso Real</div>
+  <div class="tab" onclick="show('estados')">2. Estados de Solicitud</div>
+  <div class="tab" onclick="show('anual')">3. Ciclo Anual</div>
+  <div class="tab" onclick="show('impl')">4. Implementación</div>
+</div>
+
+<!-- ══════════ TAB 1: EL PROCESO ══════════ -->
+<div id="proceso" class="panel active">
+
+  <div class="card">
+    <h3>La pregunta clave: ¿De dónde salen los productos cada año?</h3>
+    <p>El proceso tiene <strong>dos fuentes</strong> posibles al inicio de cada ejercicio:</p>
+    <ul>
+      <li><strong>Año 1 (o primera vez):</strong> El delegado selecciona productos del catálogo (<code>propuesta</code>) manualmente para cada empleado</li>
+      <li><strong>Años siguientes:</strong> Se <strong>clonan las asignaciones del año anterior</strong> como punto de partida, y el delegado ajusta</li>
+    </ul>
+    <p style="margin-top:10px;">En ambos casos, después viene el <strong>muestreo</strong> donde pueden sustituirse productos por razones de presupuesto, disponibilidad, o licitación.</p>
+  </div>
+
+  <div class="section-title">El flujo completo paso a paso</div>
+
+  <div class="timeline">
+    <div class="tl-step">
+      <div class="tl-dot" style="background:#3b82f6;">1</div>
+      <h4 style="color:#3b82f6;">Apertura</h4>
+      <p>Se abre el ejercicio 2026. Se cargan catálogos, presupuestos y cupos por UR.</p>
+    </div>
+    <div class="tl-step">
+      <div class="tl-dot" style="background:#8b5cf6;">2</div>
+      <h4 style="color:#8b5cf6;">Asignación Inicial</h4>
+      <p>Delegado clona el año anterior O selecciona de catálogo. Estado: <strong>borrador</strong></p>
+    </div>
+    <div class="tl-step">
+      <div class="tl-dot" style="background:#f59e0b;">3</div>
+      <h4 style="color:#f59e0b;">Pre-muestreo</h4>
+      <p>Delegado confirma las asignaciones. El sistema valida cupos. Estado: <strong>pre_muestreo</strong></p>
+    </div>
+    <div class="tl-step">
+      <div class="tl-dot" style="background:#ef4444;">4</div>
+      <h4 style="color:#ef4444;">Muestreo</h4>
+      <p>Se revisan precios reales, disponibilidad. Pueden sustituirse productos. Estado: <strong>en_muestreo</strong></p>
+    </div>
+    <div class="tl-step">
+      <div class="tl-dot" style="background:#22c55e;">5</div>
+      <h4 style="color:#22c55e;">Aprobado</h4>
+      <p>Lista final confirmada. Se genera el concentrado oficial. Estado: <strong>aprobado</strong></p>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <div class="section-title">Detalle de cada paso</div>
+
+  <div class="flow"><span class="step">══ PASO 1: APERTURA DEL EJERCICIO ══</span>
+<span class="role">Actor:</span> Admin del sistema
+<span class="action">Acciones:</span>
+  1. Crear el periodo (ejercicio 2026)
+  2. Cargar catálogo de productos (propuesta 2026) → tabla <span class="data">productos</span>
+  3. Cargar precios del año → tabla <span class="data">producto_precios</span> (anio=2026)
+  4. Cargar cupos de presupuesto por UR → tabla <span class="data">cupos_presupuesto</span>
+  5. Verificar que empleados, delegaciones, dependencias estén actualizados
+
+
+<span class="step">══ PASO 2: ASIGNACIÓN INICIAL ══</span>
+<span class="role">Actor:</span> Delegado
+<span class="action">Opción A — Clonar año anterior:</span>
+  <span class="arr">→</span> El sistema copia las solicitudes del 2025 al 2026
+  <span class="arr">→</span> Mapea cada producto al equivalente 2026 (por código)
+  <span class="arr">→</span> Si un producto ya no existe en 2026, lo marca como "pendiente de asignar"
+  <span class="arr">→</span> Empleados nuevos: el delegado los agrega manualmente
+  <span class="arr">→</span> Empleados que salieron: se eliminan sus solicitudes
+  <span class="arr">→</span> Estado de cada solicitud: <span class="data">borrador</span>
+
+<span class="action">Opción B — Selección manual:</span>
+  <span class="arr">→</span> El delegado ve la lista de empleados de su delegación
+  <span class="arr">→</span> Para cada empleado, selecciona productos del catálogo 2026
+  <span class="arr">→</span> El sistema calcula precio × cantidad automáticamente
+  <span class="arr">→</span> Estado: <span class="data">borrador</span>
+
+<span class="note">En ambos casos, el delegado puede editar libremente mientras estén en borrador.</span>
+
+
+<span class="step">══ PASO 3: PRE-MUESTREO (confirmar asignaciones) ══</span>
+<span class="role">Actor:</span> Delegado
+<span class="action">Acciones:</span>
+  <span class="arr">→</span> Delegado revisa todas las asignaciones de su delegación
+  <span class="arr">→</span> El sistema <span class="warn">valida presupuesto</span>:
+       SUM(importe por UR + partida + tipo) ≤ cupo_presupuesto.cantidad_limite
+  <span class="arr">→</span> Si excede: avisa qué partida se pasó y por cuánto
+  <span class="arr">→</span> Delegado ajusta (quita productos, baja cantidades, etc.)
+  <span class="arr">→</span> Cuando todo cuadra, confirma → estado cambia a <span class="data">pre_muestreo</span>
+  <span class="arr">→</span> En este momento se "congela" el producto seleccionado:
+       <span class="data">producto_id</span> = lo que eligió el delegado (esto es el producto pre-muestreo)
+       <span class="data">producto_original_id</span> = NULL (aún no hay sustitución)
+
+
+<span class="step">══ PASO 4: MUESTREO (sustituciones) ══</span>
+<span class="role">Actor:</span> Admin / Compras
+<span class="action">¿Qué pasa aquí?</span>
+  <span class="arr">→</span> Se hace la licitación / cotización real con proveedores
+  <span class="arr">→</span> Algunos productos no están disponibles o cambiaron de precio
+  <span class="arr">→</span> Se necesita sustituir: "La camisa azul ya no hay, se da la verde"
+  <span class="arr">→</span> Estado cambia a <span class="data">en_muestreo</span>
+
+<span class="action">Cuando se sustituye un producto:</span>
+  <span class="arr">→</span> <span class="data">producto_original_id</span> = el producto_id actual (lo que eligió el delegado)
+  <span class="arr">→</span> <span class="data">producto_id</span> = el nuevo producto sustituto
+  <span class="arr">→</span> <span class="data">es_sustitucion</span> = true
+  <span class="arr">→</span> Se recalcula precio_unitario, importe, iva, importe_total
+  <span class="arr">→</span> Se revalida presupuesto con los nuevos precios
+
+<span class="note">La sustitución puede ser masiva: "en TODA la UR 410, reemplazar producto X por Y"</span>
+<span class="note">O individual: solo para ciertos empleados.</span>
+
+
+<span class="step">══ PASO 5: APROBACIÓN ══</span>
+<span class="role">Actor:</span> Admin / Jefe de dependencia
+<span class="action">Acciones:</span>
+  <span class="arr">→</span> Se revisa el concentrado final
+  <span class="arr">→</span> Se aprueba → estado cambia a <span class="data">aprobado</span>
+  <span class="arr">→</span> Ya no se puede editar (solo admin puede revertir)
+  <span class="arr">→</span> Se genera el reporte / concentrado oficial para compras</div>
+
+  <div class="tip ok">
+    <strong>Respuesta a tu pregunta:</strong> El delegado NO selecciona "los productos de antes de la muestra" como tal. El flujo es: (1) se clonan las asignaciones del año pasado (o se hacen nuevas), (2) el delegado revisa y ajusta, (3) eso ES el pre-muestreo, (4) luego el muestreo puede sustituir algunos productos. El <code>producto_original_id</code> solo se llena cuando hay sustitución en el paso 4.
+  </div>
+
+</div>
+
+<!-- ══════════ TAB 2: ESTADOS ══════════ -->
+<div id="estados" class="panel">
+
+  <div class="section-title">Estados de una solicitud_vestuario</div>
+
+  <div class="state-diagram">
+    <div class="state-box" style="border-color:#3b82f6; background:#1e2a4a;">
+      <h4 style="color:#3b82f6;">borrador</h4>
+      <p style="color:#93c5fd;">Delegado puede editar todo: producto, talla, cantidad. No valida presupuesto aún.</p>
+      <div class="arrow" style="color:#3b82f6;">↓</div>
+    </div>
+    <div class="state-box" style="border-color:#f59e0b; background:#2a2210;">
+      <h4 style="color:#f59e0b;">pre_muestreo</h4>
+      <p style="color:#fde68a;">Confirmado por delegado. Presupuesto validado. Ya no editable por delegado (solo admin).</p>
+      <div class="arrow" style="color:#f59e0b;">↓</div>
+    </div>
+    <div class="state-box" style="border-color:#ef4444; background:#2a1515;">
+      <h4 style="color:#ef4444;">en_muestreo</h4>
+      <p style="color:#fca5a5;">Admin puede sustituir productos. Se registra producto_original. Se recalculan precios.</p>
+      <div class="arrow" style="color:#ef4444;">↓</div>
+    </div>
+    <div class="state-box" style="border-color:#22c55e; background:#0a2015;">
+      <h4 style="color:#22c55e;">aprobado</h4>
+      <p style="color:#86efac;">Lista final. Genera concentrado oficial. Solo admin puede revertir.</p>
+    </div>
+  </div>
+
+  <div class="tip">
+    <strong>¿Puede ir hacia atrás?</strong> Sí, pero controlado: un admin puede regresar de <code>aprobado</code> → <code>en_muestreo</code>, o de <code>pre_muestreo</code> → <code>borrador</code> si hay correcciones. Pero el delegado normal no puede.
+  </div>
+
+  <hr class="divider">
+
+  <div class="section-title">¿Quién puede hacer qué en cada estado?</div>
+
+  <div class="card">
+    <table style="width:100%; font-size:12px; border-collapse:collapse;">
+      <thead>
+        <tr style="border-bottom:1px solid #2d3748;">
+          <th style="padding:8px; text-align:left; color:#60a5fa;">Acción</th>
+          <th style="padding:8px; text-align:center; color:#3b82f6;">borrador</th>
+          <th style="padding:8px; text-align:center; color:#f59e0b;">pre_muestreo</th>
+          <th style="padding:8px; text-align:center; color:#ef4444;">en_muestreo</th>
+          <th style="padding:8px; text-align:center; color:#22c55e;">aprobado</th>
+        </tr>
+      </thead>
+      <tbody style="color:#94a3b8;">
+        <tr style="border-bottom:1px solid #1e293b;">
+          <td style="padding:8px;">Delegado edita producto/talla/cantidad</td>
+          <td style="text-align:center; color:#4ade80;">✓</td>
+          <td style="text-align:center; color:#f87171;">✗</td>
+          <td style="text-align:center; color:#f87171;">✗</td>
+          <td style="text-align:center; color:#f87171;">✗</td>
+        </tr>
+        <tr style="border-bottom:1px solid #1e293b;">
+          <td style="padding:8px;">Delegado agrega/quita empleados</td>
+          <td style="text-align:center; color:#4ade80;">✓</td>
+          <td style="text-align:center; color:#f87171;">✗</td>
+          <td style="text-align:center; color:#f87171;">✗</td>
+          <td style="text-align:center; color:#f87171;">✗</td>
+        </tr>
+        <tr style="border-bottom:1px solid #1e293b;">
+          <td style="padding:8px;">Delegado confirma (→ pre_muestreo)</td>
+          <td style="text-align:center; color:#4ade80;">✓</td>
+          <td style="text-align:center; color:#94a3b8;">—</td>
+          <td style="text-align:center; color:#94a3b8;">—</td>
+          <td style="text-align:center; color:#94a3b8;">—</td>
+        </tr>
+        <tr style="border-bottom:1px solid #1e293b;">
+          <td style="padding:8px;">Admin sustituye productos</td>
+          <td style="text-align:center; color:#f87171;">✗</td>
+          <td style="text-align:center; color:#f87171;">✗</td>
+          <td style="text-align:center; color:#4ade80;">✓</td>
+          <td style="text-align:center; color:#f87171;">✗</td>
+        </tr>
+        <tr style="border-bottom:1px solid #1e293b;">
+          <td style="padding:8px;">Admin aprueba</td>
+          <td style="text-align:center; color:#f87171;">✗</td>
+          <td style="text-align:center; color:#f87171;">✗</td>
+          <td style="text-align:center; color:#4ade80;">✓</td>
+          <td style="text-align:center; color:#94a3b8;">—</td>
+        </tr>
+        <tr style="border-bottom:1px solid #1e293b;">
+          <td style="padding:8px;">Admin regresa estado</td>
+          <td style="text-align:center; color:#94a3b8;">—</td>
+          <td style="text-align:center; color:#4ade80;">✓ →borrador</td>
+          <td style="text-align:center; color:#4ade80;">✓ →pre_muestreo</td>
+          <td style="text-align:center; color:#4ade80;">✓ →en_muestreo</td>
+        </tr>
+        <tr>
+          <td style="padding:8px;">Ver / consultar</td>
+          <td style="text-align:center; color:#4ade80;">✓ todos</td>
+          <td style="text-align:center; color:#4ade80;">✓ todos</td>
+          <td style="text-align:center; color:#4ade80;">✓ todos</td>
+          <td style="text-align:center; color:#4ade80;">✓ todos</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- ══════════ TAB 3: CICLO ANUAL ══════════ -->
+<div id="anual" class="panel">
+
+  <div class="section-title">Flujo de año nuevo: "Clonar ejercicio"</div>
+
+  <div class="flow"><span class="step">══ CLONAR EJERCICIO 2025 → 2026 ══</span>
+<span class="role">Actor:</span> Delegado (por su delegación) o Admin (masivo)
+
+<span class="action">Paso 1: Seleccionar fuente</span>
+  <span class="arr">→</span> El delegado entra al sistema, ve: "Ejercicio 2026 - Sin asignaciones"
+  <span class="arr">→</span> Botón: <span class="data">"Copiar asignaciones del 2025"</span>
+  <span class="arr">→</span> El sistema muestra resumen: "X empleados, Y productos, $Z total"
+
+<span class="action">Paso 2: Mapear productos al nuevo catálogo</span>
+  <span class="arr">→</span> Para cada solicitud del 2025:
+     - Buscar el producto equivalente en 2026 (por <span class="data">codigo</span>)
+     - Si existe: asignar el producto 2026 con su precio 2026
+     - Si NO existe: marcar como <span class="warn">"producto descontinuado - seleccionar reemplazo"</span>
+
+<span class="action">Paso 3: Verificar empleados</span>
+  <span class="arr">→</span> Empleados que ya no están en la nómina: <span class="warn">excluir</span>
+  <span class="arr">→</span> Empleados nuevos: <span class="data">avisar al delegado que los agregue</span>
+  <span class="arr">→</span> Empleados que cambiaron de UR/delegación: <span class="data">avisar</span>
+
+<span class="action">Paso 4: Crear solicitudes</span>
+  <span class="arr">→</span> Se crean las nuevas solicitudes con <span class="data">anio=2026</span>
+  <span class="arr">→</span> Estado: <span class="data">borrador</span>
+  <span class="arr">→</span> El delegado revisa y ajusta antes de confirmar
+
+<span class="note">═══════════════════════════════════════════════════════════</span>
+<span class="note">  ¿Y SI ES EL PRIMER AÑO (sin datos previos)?</span>
+<span class="note">═══════════════════════════════════════════════════════════</span>
+
+  <span class="arr">→</span> El delegado ve la lista de empleados de su delegación
+  <span class="arr">→</span> Para cada empleado, usa un buscador de productos del catálogo
+  <span class="arr">→</span> Selecciona producto, talla, cantidad
+  <span class="arr">→</span> El sistema calcula precios automáticamente
+  <span class="arr">→</span> Todo empieza en estado <span class="data">borrador</span></div>
+
+  <hr class="divider">
+
+  <div class="section-title">Ejemplo visual del ciclo</div>
+
+  <div class="flow"><span class="step">AÑO 2025 (ya cerrado)</span>
+┌─────────────────────────────────────────────────────────────┐
+│ Empleado: Juan Pérez (NUE: 12345, UR: 410)                 │
+│ ├── Camisa campo azul   (código: CAMP-AZ)   $350 × 2       │
+│ ├── Pantalón cargo      (código: PANT-CG)   $480 × 2       │
+│ └── Botas industriales  (código: BOT-IND)   $890 × 1       │
+│     Total: $2,550                                           │
+│     Estado: <span class="ok">aprobado</span>                                        │
+└─────────────────────────────────────────────────────────────┘
+                           <span class="arr">│
+                    CLONAR │ (botón "Copiar al 2026")
+                           ▼</span>
+<span class="step">AÑO 2026 (nuevo)</span>
+┌─────────────────────────────────────────────────────────────┐
+│ Empleado: Juan Pérez (NUE: 12345, UR: 410)                 │
+│ ├── Camisa campo azul   (código: CAMP-AZ)   <span class="hl">$370</span> × 2       │  <span class="note">← precio actualizado 2026</span>
+│ ├── Pantalón cargo      (código: PANT-CG)   <span class="hl">$510</span> × 2       │
+│ └── Botas industriales  (código: BOT-IND)   <span class="warn">DESCONTINUADO</span>  │  <span class="note">← no existe en catálogo 2026</span>
+│     Total: $1,760 + pendiente                               │
+│     Estado: <span class="data">borrador</span>  ← el delegado debe resolver             │
+└─────────────────────────────────────────────────────────────┘
+                           <span class="arr">│
+            DELEGADO AJUSTA│ (resuelve descontinuados, agrega empleados nuevos)
+                           ▼</span>
+┌─────────────────────────────────────────────────────────────┐
+│ ├── Camisa campo azul   (código: CAMP-AZ)   $370 × 2       │
+│ ├── Pantalón cargo      (código: PANT-CG)   $510 × 2       │
+│ └── <span class="ok">Botas reforzadas    (código: BOT-REF)   $950 × 1</span>       │  <span class="note">← reemplazo elegido</span>
+│     Total: $2,710                                           │
+│     Estado: <span class="data">borrador</span> → delegado confirma → <span class="hl">pre_muestreo</span>      │
+└─────────────────────────────────────────────────────────────┘
+                           <span class="arr">│
+              MUESTREO     │ (compras/licitación encuentra que la camisa subió)
+                           ▼</span>
+┌─────────────────────────────────────────────────────────────┐
+│ ├── <span class="warn">Camisa campo VERDE  (código: CAMP-VD)   $340 × 2</span>       │  <span class="note">← SUSTITUCIÓN</span>
+│ │   └── <span class="note">original: Camisa campo azul $370 (guardado en producto_original_id)</span>
+│ ├── Pantalón cargo      (código: PANT-CG)   $510 × 2       │
+│ └── Botas reforzadas    (código: BOT-REF)   $950 × 1       │
+│     Total: $2,650                                           │
+│     Estado: <span class="hl">en_muestreo</span> → se aprueba → <span class="ok">aprobado</span>              │
+└─────────────────────────────────────────────────────────────┘</div>
+
+  <div class="tip ok">
+    <strong>Así se conserva el presupuesto:</strong> Al clonar del año anterior, las asignaciones ya respetan la distribución que funcionó. El delegado solo ajusta lo necesario (precios nuevos, productos descontinuados, empleados nuevos/dados de baja). El presupuesto se revalida con los cupos del nuevo año.
+  </div>
+
+</div>
+
+<!-- ══════════ TAB 4: IMPLEMENTACIÓN ══════════ -->
+<div id="impl" class="panel">
+
+  <div class="section-title">Cambio necesario: agregar estado a solicitudes_vestuario</div>
+
+  <div class="card">
+    <h3>Nueva columna: <code>estado</code></h3>
+    <pre class="code"><span class="comment">// En la migración de solicitudes_vestuario, agregar:</span>
+$table-><span class="kw">enum</span>(<span class="str">'estado'</span>, [
+    <span class="str">'borrador'</span>,        <span class="comment">// Delegado editando</span>
+    <span class="str">'pre_muestreo'</span>,    <span class="comment">// Confirmado por delegado, validado presupuesto</span>
+    <span class="str">'en_muestreo'</span>,     <span class="comment">// Compras puede sustituir productos</span>
+    <span class="str">'aprobado'</span>,        <span class="comment">// Final, genera concentrado</span>
+])-><span class="kw">default</span>(<span class="str">'borrador'</span>);
+
+$table-><span class="kw">index</span>([<span class="str">'anio'</span>, <span class="str">'estado'</span>]);</pre>
+  </div>
+
+  <div class="section-title">Modelo actualizado</div>
+
+  <div class="card">
+    <pre class="code"><span class="kw">class</span> SolicitudVestuario <span class="kw">extends</span> Model
+{
+    <span class="kw">protected</span> $fillable = [
+        ...existentes...,
+        <span class="ok">'estado'</span>,
+    ];
+
+    <span class="comment">// Scopes útiles para filtrar por estado</span>
+    <span class="kw">public function</span> scopeBorrador($q)     { <span class="kw">return</span> $q->where(<span class="str">'estado'</span>, <span class="str">'borrador'</span>); }
+    <span class="kw">public function</span> scopePreMuestreo($q)  { <span class="kw">return</span> $q->where(<span class="str">'estado'</span>, <span class="str">'pre_muestreo'</span>); }
+    <span class="kw">public function</span> scopeEnMuestreo($q)   { <span class="kw">return</span> $q->where(<span class="str">'estado'</span>, <span class="str">'en_muestreo'</span>); }
+    <span class="kw">public function</span> scopeAprobado($q)      { <span class="kw">return</span> $q->where(<span class="str">'estado'</span>, <span class="str">'aprobado'</span>); }
+
+    <span class="comment">// Validar transiciones de estado</span>
+    <span class="kw">public function</span> puedeTransicionarA(<span class="kw">string</span> $nuevoEstado): <span class="kw">bool</span>
+    {
+        $transiciones = [
+            <span class="str">'borrador'</span>     => [<span class="str">'pre_muestreo'</span>],
+            <span class="str">'pre_muestreo'</span> => [<span class="str">'en_muestreo'</span>, <span class="str">'borrador'</span>],
+            <span class="str">'en_muestreo'</span>  => [<span class="str">'aprobado'</span>, <span class="str">'pre_muestreo'</span>],
+            <span class="str">'aprobado'</span>     => [<span class="str">'en_muestreo'</span>],
+        ];
+
+        <span class="kw">return in_array</span>($nuevoEstado, $transiciones[$this->estado] ?? []);
+    }
+
+    <span class="comment">// Sustituir producto (solo en estado en_muestreo)</span>
+    <span class="kw">public function</span> sustituirProducto(Producto $nuevoProducto): void
+    {
+        <span class="kw">if</span> ($this->estado !== <span class="str">'en_muestreo'</span>) {
+            <span class="kw">throw new</span> \LogicException(<span class="str">'Solo se puede sustituir en estado en_muestreo'</span>);
+        }
+
+        $this->producto_original_id = $this->producto_original_id ?? $this->producto_id;
+        $this->producto_id = $nuevoProducto->id;
+        $this->es_sustitucion = <span class="kw">true</span>;
+
+        <span class="comment">// Recalcular precios con el nuevo producto</span>
+        $precio = $nuevoProducto->precios()
+            ->where(<span class="str">'anio'</span>, $this->anio)->first();
+
+        <span class="kw">if</span> ($precio) {
+            $this->precio_unitario = $precio->precio_unitario;
+            $this->importe = $precio->precio_unitario * $this->cantidad;
+            $this->iva = $this->importe * <span class="hl">0.16</span>;
+            $this->importe_total = $this->importe + $this->iva;
+        }
+
+        $this->syncDenormFks();
+        $this->save();
+    }
+}</pre>
+  </div>
+
+  <div class="section-title">Servicio para clonar ejercicio</div>
+
+  <div class="card">
+    <pre class="code"><span class="kw">class</span> ClonarEjercicioService
+{
+    <span class="comment">/**
+     * Clona las solicitudes aprobadas del año anterior al nuevo año.
+     * Retorna resumen de lo que se clonó y lo que necesita atención.
+     */</span>
+    <span class="kw">public function</span> clonar(
+        <span class="kw">int</span> $anioOrigen,
+        <span class="kw">int</span> $anioDestino,
+        <span class="kw">int</span> $delegacionId
+    ): <span class="kw">array</span> {
+        $solicitudesOrigen = SolicitudVestuario::where(<span class="str">'anio'</span>, $anioOrigen)
+            ->whereHas(<span class="str">'empleado'</span>, <span class="kw">fn</span>($q) => $q->where(<span class="str">'delegacion_id'</span>, $delegacionId))
+            ->where(<span class="str">'estado'</span>, <span class="str">'aprobado'</span>)
+            ->with([<span class="str">'empleado'</span>, <span class="str">'producto'</span>])
+            ->get();
+
+        $creadas = 0;
+        $sinProducto = [];
+
+        <span class="kw">foreach</span> ($solicitudesOrigen <span class="kw">as</span> $sol) {
+            <span class="comment">// Buscar producto equivalente en el nuevo año (mismo código)</span>
+            $productoNuevo = Producto::where(<span class="str">'codigo'</span>, $sol->producto->codigo)
+                ->whereHas(<span class="str">'precios'</span>, <span class="kw">fn</span>($q) => $q->where(<span class="str">'anio'</span>, $anioDestino))
+                ->first();
+
+            <span class="kw">if</span> (!$productoNuevo) {
+                $sinProducto[] = [
+                    <span class="str">'empleado'</span>  => $sol->empleado->nombre_completo,
+                    <span class="str">'producto'</span>  => $sol->producto->descripcion,
+                    <span class="str">'codigo'</span>    => $sol->producto->codigo,
+                ];
+                <span class="kw">continue</span>;
+            }
+
+            $precio = $productoNuevo->precios
+                ->where(<span class="str">'anio'</span>, $anioDestino)->first();
+
+            SolicitudVestuario::<span class="kw">create</span>([
+                <span class="str">'empleado_id'</span>     => $sol->empleado_id,
+                <span class="str">'producto_id'</span>     => $productoNuevo->id,
+                <span class="str">'anio'</span>            => $anioDestino,
+                <span class="str">'talla'</span>           => $sol->talla,
+                <span class="str">'cantidad'</span>        => $sol->cantidad,
+                <span class="str">'precio_unitario'</span> => $precio?->precio_unitario,
+                <span class="str">'importe'</span>         => $precio
+                    ? $precio->precio_unitario * $sol->cantidad : <span class="kw">null</span>,
+                <span class="str">'estado'</span>          => <span class="str">'borrador'</span>,
+            ]);
+            $creadas++;
+        }
+
+        <span class="kw">return</span> [
+            <span class="str">'creadas'</span>      => $creadas,
+            <span class="str">'sin_producto'</span> => $sinProducto,
+            <span class="str">'total_origen'</span> => $solicitudesOrigen->count(),
+        ];
+    }
+}</pre>
+  </div>
+
+  <div class="tip warn">
+    <strong>Importante:</strong> La clonación crea todo en estado <code>borrador</code>. El delegado DEBE revisar y confirmar antes de pasar a <code>pre_muestreo</code>. Productos descontinuados se reportan para que el delegado elija reemplazos.
+  </div>
+
+  <div class="tip ok">
+    <strong>Resumen de lo que se necesita agregar al esquema:</strong><br>
+    1. Columna <code>estado</code> ENUM en <code>solicitudes_vestuario</code><br>
+    2. Índice <code>(anio, estado)</code> para filtrar rápido<br>
+    3. Método <code>sustituirProducto()</code> en el modelo<br>
+    4. Servicio <code>ClonarEjercicioService</code> para copiar año anterior<br>
+    5. Scopes de estado para queries limpias
+  </div>
+</div>
+
+<script>
+function show(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

@@ -3,6 +3,13 @@ import { Briefcase, Footprints, Shirt } from 'lucide-react';
 export const formatMXN = (n) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
 
 export const statusCfg = (s) => {
+    if (s === 'Baja') {
+        return {
+            dot: 'bg-red-500',
+            text: 'text-red-700 dark:text-red-400',
+            badge: 'bg-red-500/10 dark:bg-red-500/15',
+        };
+    }
     if (s === 'Completado') {
         return {
             dot: 'bg-emerald-500',

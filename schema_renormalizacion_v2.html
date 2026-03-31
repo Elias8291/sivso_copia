@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Re-normalización SIVSO v2 – Análisis Completo</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+
+  header { background: #1e2130; border-bottom: 1px solid #2d3748; padding: 16px 24px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  header h1 { font-size: 18px; font-weight: 700; color: #fff; }
+  header span { font-size: 12px; color: #64748b; background: #2d3748; padding: 3px 8px; border-radius: 999px; }
+
+  .tabs { display: flex; gap: 2px; background: #1e2130; padding: 0 24px; border-bottom: 1px solid #2d3748; overflow-x: auto; }
+  .tab { padding: 10px 16px; font-size: 13px; cursor: pointer; color: #94a3b8; border-bottom: 2px solid transparent; transition: all .2s; white-space: nowrap; }
+  .tab.active { color: #60a5fa; border-bottom-color: #60a5fa; }
+  .tab:hover:not(.active) { color: #cbd5e1; }
+
+  .panel { display: none; padding: 24px; max-width: 1400px; margin: 0 auto; }
+  .panel.active { display: block; }
+
+  .schema-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+
+  .table-card {
+    background: #1a1f2e; border: 1px solid #2d3748; border-radius: 10px; overflow: hidden; transition: box-shadow .2s;
+  }
+  .table-card:hover { box-shadow: 0 0 0 1px #60a5fa55; }
+  .table-card.highlight { border-color: #f59e0b; }
+  .table-card.changed { border-color: #22c55e; }
+  .table-card.new-table { border-color: #a78bfa; }
+
+  .table-card .header {
+    padding: 8px 12px; font-size: 12px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .table-card .header .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot-dim { background: #60a5fa; }
+  .dot-fact { background: #f59e0b; }
+  .dot-pivot { background: #a78bfa; }
+  .dot-new { background: #22c55e; }
+
+  .table-card .fields { padding: 0 0 8px; }
+  .field {
+    display: flex; align-items: center; gap: 6px;
+    padding: 3px 12px; font-size: 12px; color: #94a3b8; line-height: 1.5;
+  }
+  .field .badge {
+    font-size: 9px; padding: 1px 5px; border-radius: 4px; font-weight: 700; flex-shrink: 0; letter-spacing: .3px;
+  }
+  .pk { background: #1e3a5f; color: #60a5fa; }
+  .fk { background: #2d1b69; color: #a78bfa; }
+  .idx { background: #1a2e1a; color: #4ade80; }
+  .new { background: #14532d; color: #4ade80; }
+  .snap { background: #422006; color: #fb923c; }
+  .leg { background: #1c1917; color: #a8a29e; }
+  .bk { background: #1e3a3f; color: #67e8f9; }
+
+  .field.added { background: #052e16; border-left: 3px solid #22c55e; padding-left: 9px; color: #bbf7d0; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #94a3b8; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  .tip { background: #1a2535; border: 1px solid #1e3a5f; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; font-size: 13px; line-height: 1.6; color: #93c5fd; }
+  .tip strong { color: #60a5fa; }
+  .tip.warn { background: #2a1f15; border-color: #92400e; color: #fbbf24; }
+  .tip.warn strong { color: #f59e0b; }
+  .tip.ok { background: #0a2015; border-color: #166534; color: #86efac; }
+  .tip.ok strong { color: #22c55e; }
+
+  .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #475569; margin: 20px 0 10px; font-weight: 700; }
+  .divider { border: none; border-top: 1px solid #1e293b; margin: 20px 0; }
+
+  .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 900px) { .compare-grid { grid-template-columns: 1fr; } }
+
+  .compare-box { background: #1a1f2e; border: 1px solid #2d3748; border-radius: 10px; padding: 20px; }
+  .compare-box h3 { font-size: 14px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .compare-box pre, .code-block {
+    font-size: 12px; line-height: 1.7; background: #0f1117; padding: 14px; border-radius: 8px; overflow-x: auto;
+    color: #94a3b8; border: 1px solid #2d3748; white-space: pre-wrap;
+  }
+  pre .hl { color: #fbbf24; }
+  pre .ok { color: #4ade80; }
+  pre .comment { color: #475569; }
+  pre .kw { color: #60a5fa; }
+  pre .str { color: #f472b6; }
+
+  .badge-before { background: #7f1d1d; color: #fca5a5; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+  .badge-after  { background: #14532d; color: #86efac; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+  .badge-new    { background: #1e1b4b; color: #c4b5fd; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+
+  .flow-diagram {
+    background: #0f1117; border: 1px solid #2d3748; border-radius: 10px; padding: 20px; margin: 16px 0;
+    font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 13px; line-height: 1.8; overflow-x: auto;
+    color: #94a3b8; white-space: pre;
+  }
+  .flow-diagram .tbl { color: #60a5fa; font-weight: 700; }
+  .flow-diagram .col { color: #22c55e; }
+  .flow-diagram .arr { color: #f59e0b; }
+  .flow-diagram .note { color: #64748b; font-style: italic; }
+
+  .analysis-card {
+    background: #1a1f2e; border: 1px solid #2d3748; border-radius: 10px; padding: 20px; margin-bottom: 16px;
+  }
+  .analysis-card h3 { font-size: 15px; font-weight: 700; margin-bottom: 10px; color: #e2e8f0; }
+  .analysis-card p { font-size: 13px; line-height: 1.7; color: #94a3b8; margin-bottom: 8px; }
+  .analysis-card ul { margin-left: 20px; font-size: 13px; line-height: 1.8; color: #94a3b8; }
+  .analysis-card ul li { margin-bottom: 4px; }
+  .analysis-card code { background: #0f1117; padding: 2px 6px; border-radius: 4px; font-size: 12px; color: #60a5fa; }
+
+  .option-card {
+    border: 1px solid #2d3748; border-radius: 10px; padding: 16px; margin-bottom: 12px; cursor: default;
+    transition: all .2s;
+  }
+  .option-card.recommended { border-color: #22c55e; background: #0a2015; }
+  .option-card h4 { font-size: 14px; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .option-card .pros { color: #4ade80; font-size: 12px; }
+  .option-card .cons { color: #f87171; font-size: 12px; }
+  .option-card p { font-size: 13px; color: #94a3b8; line-height: 1.6; }
+
+  .rec-badge { background: #14532d; color: #22c55e; font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 700; }
+
+  .wide-card { grid-column: span 2; }
+  @media (max-width: 900px) { .wide-card { grid-column: span 1; } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Re-normalización SIVSO v2</h1>
+  <span>Análisis + Propuesta</span>
+  <span style="color:#f59e0b;">concentrado · propuesta · delegado · delegación · dependencia</span>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="show('analysis')">1. Análisis del problema</div>
+  <div class="tab" onclick="show('schema')">2. Esquema propuesto</div>
+  <div class="tab" onclick="show('products')">3. Productos dual (antes/después)</div>
+  <div class="tab" onclick="show('flow')">4. Flujo de datos</div>
+  <div class="tab" onclick="show('migration')">5. Migración</div>
+</div>
+
+<!-- ══════════════ TAB 1: ANÁLISIS ══════════════ -->
+<div id="analysis" class="panel active">
+
+  <div class="section-title">Mapeo Legacy → Normalizado</div>
+
+  <div class="analysis-card">
+    <h3>Lo que viene en <code>concentrado</code> (legacy)</h3>
+    <p>Cada fila de <code>concentrado</code> representa <strong>1 empleado + 1 artículo</strong>. El empleado se repite por cada artículo que se le asigna. Contiene:</p>
+    <ul>
+      <li><strong>Datos del empleado:</strong> NUE, nombre, apellidos, UR, delegación</li>
+      <li><strong>Producto actual (post-muestreo):</strong> <code>clave_partida</code>, <code>no_partida</code>, descripción del producto, precio, cantidad, talla</li>
+      <li><strong>Producto original (pre-muestreo):</strong> <code>clave2025</code>, otra <code>descripción</code>, otro <code>precio_unitario</code>, <code>importe</code>, <code>IVA</code>, <code>total</code></li>
+    </ul>
+    <p style="color:#fbbf24; margin-top:8px;">El problema central: cada fila tiene <strong>DOS productos distintos</strong> — el que se planeó dar y el que realmente se dio.</p>
+  </div>
+
+  <div class="analysis-card">
+    <h3>Lo que viene en <code>propuesta</code> (legacy)</h3>
+    <p>Catálogo maestro de productos. Cada fila tiene:</p>
+    <ul>
+      <li><code>partida</code> → es nuestro <code>no_partida</code> en la tabla <code>partidas</code></li>
+      <li><code>partida_especifica</code> → 244 o 246 (tipos en el rubro de egresos de Oaxaca) → tabla <code>tipos_partida_especifica</code></li>
+      <li>Descripción, marca, unidad de medida, precio, código del producto</li>
+    </ul>
+    <p>Esto mapea a: <code>partidas</code> + <code>productos</code> + <code>producto_precios</code></p>
+  </div>
+
+  <div class="analysis-card">
+    <h3>Relaciones clave identificadas</h3>
+    <ul>
+      <li><strong>Dependencia (UR)</strong> ↔ <strong>Delegación</strong>: N:M (una UR puede tener muchas delegaciones, una delegación puede pertenecer a muchas URs). Llave natural de dependencia = <code>ur</code></li>
+      <li><strong>Delegado</strong> ↔ <strong>Delegación</strong>: N:M (un delegado puede gestionar varias delegaciones, una delegación puede tener varios delegados)</li>
+      <li><strong>Empleado</strong> → <strong>Dependencia</strong> (via UR) + <strong>Delegación</strong>: El empleado tiene NUE y UR. Cuando NUE es nulo, se compara UR + delegación para ubicarlo</li>
+      <li><strong>Producto</strong> → <strong>Partida</strong> + <strong>Tipo Partida Específica</strong> (244/246)</li>
+      <li><strong>Cupo Presupuesto</strong>: Gobierno asigna a cada dependencia un límite por partida + tipo. Se compara SUM(gasto real) vs límite</li>
+    </ul>
+  </div>
+
+  <hr class="divider">
+
+  <div class="section-title">El problema de los dos productos en concentrado</div>
+
+  <div class="flow-diagram"><span class="note">── En concentrado, una fila típica ──</span>
+
+<span class="tbl">Empleado:</span>  NUE=12345, nombre="Juan Pérez", UR=410, delegación="DEL-01"
+
+<span class="tbl">Producto ACTUAL</span> (post-muestreo):        <span class="tbl">Producto ORIGINAL</span> (pre-muestreo):
+  <span class="col">clave_partida</span> = "UNIF-CAMP-M"            <span class="col">clave2025</span> = "UNIF-CAMP-ORIG-M"
+  <span class="col">descripcion</span>   = "Camisa campo azul"      <span class="col">descripcion</span> = "Camisa campo verde"
+  <span class="col">precio_unit</span>   = 350.00                   <span class="col">precio_unit</span> = 420.00
+  <span class="col">no_partida</span>    = 2711                     <span class="col">importe</span>     = 420.00
+                                             <span class="col">iva</span>         = 67.20
+<span class="arr">──────────────────────────────────────────────────────────────────</span>
+<span class="note">Son DOS productos distintos. El original se "compactó" al actual.</span>
+<span class="note">Ambos deben mantenerse porque pueden volver a sustituirse.</span></div>
+
+  <div class="section-title">Opciones de diseño para el producto dual</div>
+
+  <div class="option-card recommended">
+    <h4><span class="rec-badge">RECOMENDADA</span> Opción A: Dos FKs en solicitudes_vestuario</h4>
+    <p>Agregar <code>producto_original_id</code> (nullable FK → productos) a <code>solicitudes_vestuario</code>. El campo <code>producto_id</code> existente = producto final. Si hubo sustitución, <code>producto_original_id</code> ≠ <code>producto_id</code>.</p>
+    <p class="pros" style="margin-top:8px;">+ Simple, 1 columna nueva | + Ambos productos viven en tabla <code>productos</code> con sus precios | + Fácil de consultar | + Soporta futuras sustituciones | + Sin cambio de flujo existente</p>
+    <p class="cons">− No guarda motivo ni fecha de sustitución (pero se puede agregar después)</p>
+  </div>
+
+  <div class="option-card">
+    <h4>Opción B: Tabla de sustituciones separada</h4>
+    <p>Crear <code>sustituciones_producto</code> con: producto_original_id, producto_nuevo_id, anio, motivo, fecha. Y <code>solicitudes_vestuario</code> solo tiene <code>producto_id</code> (el final).</p>
+    <p class="pros" style="margin-top:8px;">+ Historial completo de sustituciones | + Motivo y fecha de cada cambio</p>
+    <p class="cons">− Queries más complejas | − Sobre-ingeniería para el caso actual</p>
+  </div>
+
+  <div class="option-card">
+    <h4>Opción C: Tabla producto_versiones</h4>
+    <p>Tratar cada representación como "versión" del mismo concepto de producto: tipo = original|muestreo|sustitucion.</p>
+    <p class="pros" style="margin-top:8px;">+ Máxima flexibilidad</p>
+    <p class="cons">− Muy complejo | − Cambia la naturaleza de la tabla productos | − No vale la pena para 2 estados</p>
+  </div>
+
+  <div class="tip ok">
+    <strong>Recomendación:</strong> Ir con <strong>Opción A</strong> ahora (simple, efectiva), y si en el futuro necesitas auditar motivos de sustitución, puedes agregar la tabla de sustituciones sin romper nada. Los dos enfoques son compatibles.
+  </div>
+
+</div>
+
+<!-- ══════════════ TAB 2: ESQUEMA ══════════════ -->
+<div id="schema" class="panel">
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#60a5fa"></div> Catálogo / Dimensión</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div> Tabla de hechos (fact)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#a78bfa"></div> Pivot N:M</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div> Nuevo / Cambiado</div>
+  </div>
+
+  <div class="section-title">Llaves naturales corregidas</div>
+
+  <div class="schema-grid">
+
+    <!-- dependencias -->
+    <div class="table-card changed">
+      <div class="header"><div class="dot dot-dim"></div>dependencias <span style="font-size:10px;color:#22c55e;font-weight:400;">— ur como Business Key</span></div>
+      <div class="fields">
+        <div class="field"><span class="badge pk">PK</span> id (surrogate)</div>
+        <div class="field"><span class="badge bk">BK</span> ur — UNIQUE NOT NULL</div>
+        <div class="field">nombre</div>
+        <div class="field">ur_texto</div>
+        <div class="field">codigo (nullable)</div>
+      </div>
+    </div>
+
+    <!-- delegaciones -->
+    <div class="table-card changed">
+      <div class="header"><div class="dot dot-dim"></div>delegaciones <span style="font-size:10px;color:#22c55e;font-weight:400;">— clave como BK</span></div>
+      <div class="fields">
+        <div class="field"><span class="badge pk">PK</span> id (surrogate)</div>
+        <div class="field"><span class="badge bk">BK</span> clave — UNIQUE NOT NULL</div>
+        <div class="field">nombre</div>
+        <div class="field added"><span class="badge new">NUEVO</span> ur (nullable) — para comparar con empleados</div>
+      </div>
+    </div>
+
+    <!-- delegados -->
+    <div class="table-card">
+      <div class="header"><div class="dot dot-dim"></div>delegados</div>
+      <div class="fields">
+        <div class="field"><span class="badge pk">PK</span> id</div>
+        <div class="field">nombre_completo</div>
+      </div>
+    </div>
+
+    <!-- tipos_partida_especifica -->
+    <div class="table-card">
+      <div class="header"><div class="dot dot-dim"></div>tipos_partida_especifica</div>
+      <div class="fields">
+        <div class="field"><span class="badge pk">PK</span> id</div>
+        <div class="field"><span class="badge bk">BK</span> codigo — UNIQUE (244, 246)</div>
+        <div class="field">nombre</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="section-title">Pivots N:M (sin cambios)</div>
+
+  <div class="schema-grid">
+
+    <div class="table-card">
+      <div class="header"><div class="dot dot-pivot"></div>dependencia_delegacion</div>
+      <div class="fields">
+        <div class="field"><span class="badge fk">FK</span> dependencia_id → dependencias</div>
+        <div class="field"><span class="badge fk">FK</span> delegacion_id → delegaciones</div>
+        <div class="field"><span class="badge pk">PK</span> (dependencia_id, delegacion_id)</div>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="header"><div class="dot dot-pivot"></div>delegado_delegacion</div>
+      <div class="fields">
+        <div class="field"><span class="badge fk">FK</span> delegado_id → delegados</div>
+        <div class="field"><span class="badge fk">FK</span> delegacion_id → delegaciones</div>
+        <div class="field"><span class="badge pk">PK</span> (delegado_id, delegacion_id)</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="section-title">Partidas y Productos</div>
+
+  <div class="schema-grid">
+
+    <div class="table-card">
+      <div class="header"><div class="dot dot-dim"></div>partidas</div>
+      <div class="fields">
+        <div class="field"><span class="badge pk">PK</span> id</div>
+        <div class="field"><span class="badge bk">BK</span> no_partida — UNIQUE</div>
+        <div class="field">descripcion</div>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="header"><div class="dot dot-dim"></div>partidas_por_ejercicio</div>
+      <div class="fields">
+        <div class="field"><span class="badge pk">PK</span> id</div>
+        <div class="field"><span class="badge fk">FK</span> partida_id → partidas</div>
+        <div class="field"><span class="badge idx">IDX</span> anio</div>
+        <div class="field">no_partida_snapshot</div>
+        <div class="field">clave_como_se_uso</div>
+        <div class="field">clave_para_ejercicio</div>
+        <div class="field">clave_presupuestal</div>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="header"><div class="dot dot-dim"></div>partidas_especificas</div>
+      <div class="fields">
+        <div class="field"><span class="badge pk">PK</span> id</div>
+        <div class="field"><span class="badge fk">FK</span> partida_id → partidas</div>
+        <div class="field"><span class="badge idx">IDX</span> anio</div>
+        <div class="field">clave (clave2025 de concentrado)</div>
+        <div class="field">descripcion</div>
+        <div class="field">clave_partida</div>
+      </div>
+    </div>
+
+    <div class="table-card changed">
+      <div class="header"><div class="dot dot-dim"></div>productos <span style="font-size:10px;color:#22c55e;font-weight:400;">— alberga AMBOS tipos</span></div>
+      <div class="fields">
+        <div class="field"><span class="badge pk">PK</span> id</div>
+        <div class="field"><span class="badge fk">FK</span> partida_id → partidas</div>
+        <div class="field"><span class="badge fk">FK</span> tipo_partida_especifica_id → tipos_pe</div>
+        <div class="field">lote</div>
+        <div class="field">descripcion</div>
+        <div class="field">marca · unidad_medida · codigo · medida</div>
+        <div class="field added"><span class="badge new">NUEVO</span> origen ENUM('propuesta','concentrado','sustitucion')</div>
+        <div class="field"><span class="badge leg">LEGACY</span> legacy_propuesta_id</div>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="header"><div class="dot dot-dim"></div>producto_precios</div>
+      <div class="fields">
+        <div class="field"><span class="badge pk">PK</span> id</div>
+        <div class="field"><span class="badge fk">FK</span> producto_id → productos</div>
+        <div class="field"><span class="badge idx">UQ</span> (producto_id, anio)</div>
+        <div class="field">precio_unitario · subtotal · proveedor</div>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="header"><div class="dot dot-dim"></div>cupos_presupuesto</div>
+      <div class="fields">
+        <div class="field"><span class="badge pk">PK</span> id</div>
+        <div class="field"><span class="badge fk">FK</span> dependencia_id → dependencias</div>
+        <div class="field"><span class="badge fk">FK</span> partida_id → partidas</div>
+        <div class="field"><span class="badge fk">FK</span> tipo_partida_especifica_id → tipos_pe</div>
+        <div class="field"><span class="badge idx">IDX</span> anio</div>
+        <div class="field">cantidad_limite</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="section-title">Empleados y Solicitudes (Fact Table)</div>
+
+  <div class="schema-grid">
+
+    <div class="table-card">
+      <div class="header"><div class="dot dot-dim"></div>empleados</div>
+      <div class="fields">
+        <div class="field"><span class="badge pk">PK</span> id</div>
+        <div class="field"><span class="badge idx">IDX</span> nue (nullable)</div>
+        <div class="field">nombre · apellido_paterno · apellido_materno</div>
+        <div class="field"><span class="badge fk">FK</span> dependencia_id → dependencias</div>
+        <div class="field"><span class="badge fk">FK</span> delegacion_id → delegaciones</div>
+        <div class="field"><span class="badge idx">IDX</span> ur — para match cuando nue es nulo</div>
+      </div>
+    </div>
+
+    <!-- solicitudes_vestuario WIDE -->
+    <div class="table-card highlight" style="grid-column: span 2;">
+      <div class="header"><div class="dot dot-fact"></div>solicitudes_vestuario <span style="font-size:10px;color:#f59e0b;font-weight:400;">— FACT TABLE con producto dual</span></div>
+      <div class="fields" style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px;">
+        <div>
+          <div class="field"><span class="badge pk">PK</span> id</div>
+          <div class="field"><span class="badge fk">FK</span> empleado_id → empleados</div>
+          <div class="field"><span class="badge fk">FK</span> producto_id → productos <span style="color:#4ade80;font-size:10px;">(FINAL / post-muestreo)</span></div>
+          <div class="field added"><span class="badge new">NUEVO</span> producto_original_id → productos <span style="color:#fbbf24;font-size:10px;">(PLANEADO / pre-muestreo, nullable)</span></div>
+          <div class="field"><span class="badge fk">FK</span> partida_especifica_id → partidas_especificas</div>
+          <div class="field"><span class="badge fk">FK</span> dependencia_id → dependencias <span style="color:#67e8f9;font-size:10px;">(denorm)</span></div>
+          <div class="field"><span class="badge fk">FK</span> partida_id → partidas <span style="color:#67e8f9;font-size:10px;">(denorm)</span></div>
+          <div class="field"><span class="badge fk">FK</span> tipo_partida_especifica_id → tipos_pe <span style="color:#67e8f9;font-size:10px;">(denorm)</span></div>
+        </div>
+        <div>
+          <div class="field"><span class="badge idx">IDX</span> anio</div>
+          <div class="field">talla · cantidad</div>
+          <div class="field">precio_unitario · importe · iva · importe_total</div>
+          <div class="field added"><span class="badge new">NUEVO</span> es_sustitucion BOOLEAN default false</div>
+          <div class="field"><span class="badge idx">IDX</span> (anio, dependencia_id, partida_id, tipo_pe_id)</div>
+          <div class="field"><span class="badge snap">SNAP</span> no_partida_snapshot</div>
+          <div class="field"><span class="badge snap">SNAP</span> clave_partida_snapshot</div>
+          <div class="field"><span class="badge snap">SNAP</span> clave_para_ejercicio_snapshot</div>
+          <div class="field"><span class="badge leg">LEGACY</span> legacy_concentrado_id</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <hr class="divider">
+
+  <div class="tip">
+    <strong>Llaves naturales vs surrogates:</strong> Se mantienen los IDs autoincrementales como PK (para FKs consistentes en Laravel), pero <code>ur</code> en dependencias y <code>clave</code> en delegaciones son UNIQUE NOT NULL, sirviendo como <strong>Business Keys</strong> para lookups al importar datos.
+  </div>
+
+  <div class="tip ok">
+    <strong>¿Por qué <code>ur</code> en delegaciones?</strong> Al agregar <code>ur</code> a la tabla <code>delegaciones</code>, puedes comparar directamente: si un empleado tiene UR=410 y su delegación tiene UR=410, la asignación es correcta. Esto facilita el matching cuando el NUE es nulo.
+  </div>
+
+</div>
+
+<!-- ══════════════ TAB 3: PRODUCTOS DUAL ══════════════ -->
+<div id="products" class="panel">
+
+  <div class="section-title">Cómo funcionan los dos productos</div>
+
+  <div class="analysis-card">
+    <h3>Regla de negocio</h3>
+    <p>En <code>concentrado</code>, cada fila tiene <strong>dos conjuntos de datos de producto</strong>:</p>
+    <ul>
+      <li><strong>Producto actual</strong> (<code>clave_partida</code>): Lo que realmente se le da al empleado después del muestreo/compactación</li>
+      <li><strong>Producto original</strong> (<code>clave2025</code>): Lo que originalmente se planeaba dar antes del muestreo</li>
+    </ul>
+    <p style="margin-top:8px;">Ambos productos <strong>pueden ser sustituidos por código en el futuro</strong>, por lo que necesitamos mantener ambas formas y poder rastrear cambios.</p>
+  </div>
+
+  <div class="compare-grid">
+    <div class="compare-box">
+      <h3><span class="badge-before">ANTES</span> Solo un producto por solicitud</h3>
+      <pre><span class="comment">-- Se pierde la info del producto original</span>
+solicitudes_vestuario
+├── producto_id → productos  <span class="hl">(¿cuál de los dos?)</span>
+└── <span class="hl">No hay forma de saber qué se planeó dar</span></pre>
+    </div>
+    <div class="compare-box">
+      <h3><span class="badge-after">DESPUÉS</span> Dos productos vinculados</h3>
+      <pre><span class="comment">-- Ambos productos coexisten</span>
+solicitudes_vestuario
+├── producto_id          → productos  <span class="ok">(FINAL)</span>
+├── producto_original_id → productos  <span class="ok">(PLANEADO, nullable)</span>
+└── es_sustitucion       BOOLEAN
+
+<span class="comment">-- Consultas posibles:</span>
+<span class="kw">WHERE</span> es_sustitucion = <span class="str">true</span>  <span class="comment">→ solo sustituciones</span>
+<span class="kw">WHERE</span> producto_id != producto_original_id  <span class="comment">→ idem</span></pre>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <div class="section-title">Tabla productos: alberga AMBOS tipos</div>
+
+  <div class="flow-diagram"><span class="note">── Importación desde concentrado ──</span>
+
+<span class="tbl">1.</span> Leer <span class="col">clave_partida</span> de concentrado → buscar o crear en <span class="tbl">productos</span>
+   <span class="arr">→</span> <span class="col">origen</span> = 'propuesta' (viene del catálogo propuesta)
+   <span class="arr">→</span> Este es el <span class="col">producto_id</span> en solicitudes_vestuario
+
+<span class="tbl">2.</span> Leer <span class="col">clave2025</span> de concentrado → buscar o crear en <span class="tbl">productos</span>
+   <span class="arr">→</span> <span class="col">origen</span> = 'concentrado' (producto pre-muestreo)
+   <span class="arr">→</span> Este es el <span class="col">producto_original_id</span> en solicitudes_vestuario
+
+<span class="tbl">3.</span> Si <span class="col">clave_partida</span> == <span class="col">clave2025</span>:
+   <span class="arr">→</span> No hubo sustitución: <span class="col">producto_original_id</span> = NULL, <span class="col">es_sustitucion</span> = false
+
+<span class="tbl">4.</span> Si <span class="col">clave_partida</span> != <span class="col">clave2025</span>:
+   <span class="arr">→</span> Hubo sustitución: ambos apuntan a productos distintos, <span class="col">es_sustitucion</span> = true
+
+<span class="note">── Sustitución futura por código ──</span>
+
+<span class="tbl">5.</span> Crear nuevo producto en <span class="tbl">productos</span> con <span class="col">origen</span> = 'sustitucion'
+<span class="tbl">6.</span> En solicitudes_vestuario:
+   <span class="arr">→</span> Guardar <span class="col">producto_id</span> actual como <span class="col">producto_original_id</span>
+   <span class="arr">→</span> Actualizar <span class="col">producto_id</span> al nuevo producto
+   <span class="arr">→</span> <span class="col">es_sustitucion</span> = true</div>
+
+  <div class="section-title">Precios de cada producto</div>
+
+  <div class="tip">
+    <strong>Cada producto tiene su propio precio:</strong> La tabla <code>producto_precios</code> almacena (producto_id, anio, precio_unitario). Tanto el producto original como el sustituto tienen entradas separadas. Así puedes comparar: "costaba $420 el original, se sustituyó por uno de $350".
+  </div>
+
+  <div class="section-title">Validación de presupuesto (cupos)</div>
+
+  <div class="flow-diagram"><span class="note">── Cómo funciona el control de gasto ──</span>
+
+<span class="tbl">cupos_presupuesto</span>:
+  UR <span class="col">410</span> + partida <span class="col">2711</span> + tipo <span class="col">244</span> + año 2026 → límite = <span class="col">$500,000</span>
+
+<span class="tbl">Para validar:</span>
+  <span class="kw">SELECT SUM</span>(sv.importe_total)
+  <span class="kw">FROM</span> solicitudes_vestuario sv
+  <span class="kw">WHERE</span> sv.anio = 2026
+    <span class="kw">AND</span> sv.dependencia_id = <span class="col">(dependencia con ur=410)</span>
+    <span class="kw">AND</span> sv.partida_id = <span class="col">(partida con no_partida=2711)</span>
+    <span class="kw">AND</span> sv.tipo_partida_especifica_id = <span class="col">(tipo con codigo=244)</span>
+
+  <span class="arr">→</span> Si total > límite <span class="arr">→</span> Excede presupuesto
+  <span class="arr">→</span> Con FKs denormalizadas: <span class="ok">INDEX SCAN puro, sin JOINs</span></div>
+
+</div>
+
+<!-- ══════════════ TAB 4: FLUJO ══════════════ -->
+<div id="flow" class="panel">
+
+  <div class="section-title">Flujo de importación: concentrado → esquema normalizado</div>
+
+  <div class="flow-diagram"><span class="note">═══════════════════════════════════════════════════</span>
+<span class="note">  PASO 1: Catálogos (una sola vez)</span>
+<span class="note">═══════════════════════════════════════════════════</span>
+
+<span class="tbl">tipos_partida_especifica</span>  ← Insertar 244, 246
+<span class="tbl">dependencias</span>              ← Distintos UR de concentrado (ur como BK)
+<span class="tbl">delegaciones</span>              ← Distintas claves de delegación + ur asociada
+<span class="tbl">delegados</span>                 ← Nombres únicos de delegados
+<span class="tbl">dependencia_delegacion</span>    ← Relación N:M encontrada en los datos
+<span class="tbl">delegado_delegacion</span>       ← Relación N:M encontrada en los datos
+
+<span class="note">═══════════════════════════════════════════════════</span>
+<span class="note">  PASO 2: Partidas y productos</span>
+<span class="note">═══════════════════════════════════════════════════</span>
+
+<span class="tbl">partidas</span>                  ← Distintos no_partida (desde propuesta y concentrado)
+<span class="tbl">partidas_por_ejercicio</span>    ← clave_partida, clave2025 por año
+<span class="tbl">partidas_especificas</span>      ← Cada clave2025 distinta con su descripción
+
+<span class="tbl">productos</span> (desde propuesta):
+  <span class="arr">→</span> origen = 'propuesta'
+  <span class="arr">→</span> código = clave del catálogo propuesta
+  <span class="arr">→</span> partida_id = lookup por no_partida
+  <span class="arr">→</span> tipo_partida_especifica_id = lookup por partida_especifica (244/246)
+
+<span class="tbl">productos</span> (desde concentrado — pre-muestreo):
+  <span class="arr">→</span> origen = 'concentrado'
+  <span class="arr">→</span> código = clave2025
+  <span class="arr">→</span> Solo si clave2025 no existe ya como producto
+
+<span class="tbl">producto_precios</span>          ← precio por producto + año
+
+<span class="note">═══════════════════════════════════════════════════</span>
+<span class="note">  PASO 3: Empleados (deduplicar)</span>
+<span class="note">═══════════════════════════════════════════════════</span>
+
+<span class="tbl">empleados</span>:
+  Para cada fila de concentrado:
+  <span class="arr">→</span> Buscar por NUE (si no es nulo)
+  <span class="arr">→</span> Si NUE es nulo: buscar por (nombre + ur) ó (nombre + delegación)
+  <span class="arr">→</span> dependencia_id = lookup por UR en dependencias
+  <span class="arr">→</span> delegacion_id = lookup por clave de delegación
+  <span class="arr">→</span> Crear si no existe, reusar si ya existe
+
+<span class="note">═══════════════════════════════════════════════════</span>
+<span class="note">  PASO 4: Solicitudes (1 fila concentrado → 1 solicitud)</span>
+<span class="note">═══════════════════════════════════════════════════</span>
+
+<span class="tbl">solicitudes_vestuario</span>:
+  <span class="col">empleado_id</span>           = empleado encontrado/creado en paso 3
+  <span class="col">producto_id</span>           = producto ACTUAL (por clave_partida)
+  <span class="col">producto_original_id</span>  = producto ORIGINAL (por clave2025, si ≠ actual)
+  <span class="col">es_sustitucion</span>        = (clave_partida ≠ clave2025)
+  <span class="col">dependencia_id</span>        = empleado.dependencia_id  <span class="note">(denorm)</span>
+  <span class="col">partida_id</span>            = producto.partida_id      <span class="note">(denorm)</span>
+  <span class="col">tipo_pe_id</span>            = producto.tipo_pe_id      <span class="note">(denorm)</span>
+  <span class="col">precio, importe, iva...</span> = del concentrado</div>
+
+  <div class="section-title">Asignación de delegación cuando NUE es nulo</div>
+
+  <div class="flow-diagram"><span class="note">── Lógica de matching ──</span>
+
+<span class="tbl">Caso 1: NUE no es nulo</span>
+  Empleado.NUE = concentrado.NUE
+  <span class="arr">→</span> Buscar empleado existente por NUE
+  <span class="arr">→</span> Si no existe, crear con su UR y delegación
+
+<span class="tbl">Caso 2: NUE es nulo</span>
+  <span class="arr">→</span> Tomar UR del empleado en concentrado
+  <span class="arr">→</span> Buscar dependencia por UR
+  <span class="arr">→</span> Buscar delegación que tenga esa misma UR
+       (delegaciones.ur = concentrado.ur)
+  <span class="arr">→</span> Comparar nombre completo para evitar duplicados
+  <span class="arr">→</span> Asignar dependencia_id y delegacion_id
+
+<span class="tbl">¿Por qué UR en delegaciones?</span>
+  Porque la delegación en concentrado tiene la UR del empleado.
+  Al guardar <span class="col">delegaciones.ur</span>, el match es directo:
+  <span class="kw">WHERE</span> delegaciones.ur = empleado.ur <span class="kw">AND</span> delegaciones.clave = concentrado.delegacion</div>
+
+</div>
+
+<!-- ══════════════ TAB 5: MIGRACIÓN ══════════════ -->
+<div id="migration" class="panel">
+
+  <div class="section-title">Cambios requeridos en la migración copiasivso</div>
+
+  <div class="tip warn">
+    <strong>Estrategia:</strong> Como el esquema copiasivso se está construyendo desde cero (no hay datos legacy en producción), lo más limpio es <strong>reescribir la migración principal</strong> en lugar de agregar parches. Esto nos da un esquema limpio y consistente.
+  </div>
+
+  <div class="analysis-card">
+    <h3>Resumen de cambios vs esquema actual</h3>
+    <ul>
+      <li><strong>dependencias.ur</strong>: Cambiar de <code>nullable()->index()</code> a <code>unique()</code> — es la Business Key</li>
+      <li><strong>delegaciones</strong>: Agregar columna <code>ur</code> (nullable, indexada) para facilitar matching</li>
+      <li><strong>productos</strong>: Agregar <code>origen ENUM('propuesta','concentrado','sustitucion')</code></li>
+      <li><strong>solicitudes_vestuario</strong>: Agregar <code>producto_original_id</code> FK + <code>es_sustitucion</code> boolean + FKs denormalizadas</li>
+    </ul>
+  </div>
+
+  <div class="section-title">Migración completa propuesta</div>
+
+  <div class="analysis-card">
+    <h3>2026_03_30_000000_create_sivso_normalized_schema_on_copiasivso.php</h3>
+    <pre class="code-block"><span class="kw">protected</span> $connection = <span class="str">'copiasivso'</span>;
+
+<span class="kw">public function</span> up(): void
+{
+    $c = $this->connection;
+
+    <span class="comment">// tipos_partida_especifica — sin cambios</span>
+    Schema::connection($c)->create(<span class="str">'tipos_partida_especifica'</span>, <span class="kw">function</span> (Blueprint $table) {
+        $table->id();
+        $table->unsignedSmallInteger(<span class="str">'codigo'</span>);
+        $table->string(<span class="str">'nombre'</span>, 120)->nullable();
+        $table->timestamps();
+        $table->unique(<span class="str">'codigo'</span>);
+    });
+
+    <span class="comment">// dependencias — ur ahora es UNIQUE NOT NULL (Business Key)</span>
+    Schema::connection($c)->create(<span class="str">'dependencias'</span>, <span class="kw">function</span> (Blueprint $table) {
+        $table->id();
+        $table->string(<span class="str">'codigo'</span>, 12)->nullable()->index();
+        <span class="ok">$table->unsignedInteger('ur')->unique();</span>  <span class="comment">// ← BK, ya no nullable</span>
+        $table->string(<span class="str">'nombre'</span>, 255);
+        $table->string(<span class="str">'ur_texto'</span>, 120)->nullable();
+        $table->timestamps();
+    });
+
+    <span class="comment">// delegaciones — se agrega ur para matching</span>
+    Schema::connection($c)->create(<span class="str">'delegaciones'</span>, <span class="kw">function</span> (Blueprint $table) {
+        $table->id();
+        $table->string(<span class="str">'clave'</span>, 60);
+        $table->string(<span class="str">'nombre'</span>, 255)->nullable();
+        <span class="ok">$table->unsignedInteger('ur')->nullable()->index();</span>  <span class="comment">// ← NUEVO</span>
+        $table->timestamps();
+        $table->unique(<span class="str">'clave'</span>);
+    });
+
+    <span class="comment">// Pivots N:M — sin cambios</span>
+    <span class="comment">// dependencia_delegacion, delegado_delegacion, delegados</span>
+    ...
+
+    <span class="comment">// productos — se agrega campo 'origen'</span>
+    Schema::connection($c)->create(<span class="str">'productos'</span>, <span class="kw">function</span> (Blueprint $table) {
+        $table->id();
+        $table->foreignId(<span class="str">'partida_id'</span>)->constrained(<span class="str">'partidas'</span>)->cascadeOnDelete();
+        $table->foreignId(<span class="str">'tipo_partida_especifica_id'</span>)
+            ->constrained(<span class="str">'tipos_partida_especifica'</span>)->restrictOnDelete();
+        $table->unsignedInteger(<span class="str">'lote'</span>)->nullable();
+        $table->text(<span class="str">'descripcion'</span>);
+        $table->string(<span class="str">'marca'</span>, 120)->nullable();
+        $table->string(<span class="str">'unidad_medida'</span>, 30)->nullable();
+        $table->string(<span class="str">'codigo'</span>, 60)->nullable()->index();
+        $table->string(<span class="str">'medida'</span>, 10)->nullable();
+        <span class="ok">$table->enum('origen', ['propuesta', 'concentrado', 'sustitucion'])
+            ->default('propuesta');</span>  <span class="comment">// ← NUEVO</span>
+        $table->unsignedBigInteger(<span class="str">'legacy_propuesta_id'</span>)->nullable()->unique();
+        $table->timestamps();
+        $table->index([<span class="str">'partida_id'</span>, <span class="str">'tipo_partida_especifica_id'</span>]);
+    });
+
+    <span class="comment">// solicitudes_vestuario — con producto dual + denorm FKs</span>
+    Schema::connection($c)->create(<span class="str">'solicitudes_vestuario'</span>, <span class="kw">function</span> (Blueprint $table) {
+        $table->id();
+        $table->foreignId(<span class="str">'empleado_id'</span>)->constrained(<span class="str">'empleados'</span>)->cascadeOnDelete();
+        $table->foreignId(<span class="str">'producto_id'</span>)->constrained(<span class="str">'productos'</span>)->restrictOnDelete();
+        <span class="ok">$table->foreignId('producto_original_id')
+            ->nullable()
+            ->constrained('productos')
+            ->nullOnDelete();</span>  <span class="comment">// ← NUEVO: producto pre-muestreo</span>
+        $table->foreignId(<span class="str">'partida_especifica_id'</span>)->nullable()
+            ->constrained(<span class="str">'partidas_especificas'</span>)->nullOnDelete();
+
+        <span class="comment">// FKs denormalizadas para queries rápidas</span>
+        <span class="ok">$table->foreignId('dependencia_id')->nullable()
+            ->constrained('dependencias')->nullOnDelete();
+        $table->foreignId('partida_id')->nullable()
+            ->constrained('partidas')->nullOnDelete();
+        $table->foreignId('tipo_partida_especifica_id')->nullable()
+            ->constrained('tipos_partida_especifica')->nullOnDelete();</span>
+
+        $table->unsignedSmallInteger(<span class="str">'anio'</span>);
+        $table->string(<span class="str">'talla'</span>, 20)->nullable();
+        $table->unsignedInteger(<span class="str">'cantidad'</span>)->default(1);
+        $table->decimal(<span class="str">'precio_unitario'</span>, 12, 2)->nullable();
+        $table->decimal(<span class="str">'importe'</span>, 14, 2)->nullable();
+        $table->decimal(<span class="str">'iva'</span>, 12, 2)->nullable();
+        $table->decimal(<span class="str">'importe_total'</span>, 14, 2)->nullable();
+        <span class="ok">$table->boolean('es_sustitucion')->default(false);</span>  <span class="comment">// ← NUEVO</span>
+
+        $table->unsignedInteger(<span class="str">'no_partida_snapshot'</span>)->nullable();
+        $table->string(<span class="str">'clave_partida_snapshot'</span>, 512)->nullable();
+        $table->string(<span class="str">'clave_para_ejercicio_snapshot'</span>, 512)->nullable();
+        $table->unsignedBigInteger(<span class="str">'legacy_concentrado_id'</span>)->nullable()->unique();
+        $table->timestamps();
+
+        $table->index([<span class="str">'empleado_id'</span>, <span class="str">'anio'</span>]);
+        $table->index([<span class="str">'producto_id'</span>, <span class="str">'anio'</span>]);
+        <span class="ok">$table->index(
+            ['anio', 'dependencia_id', 'partida_id', 'tipo_partida_especifica_id'],
+            'sv_anio_dep_part_tipo_idx'
+        );</span>  <span class="comment">// ← NUEVO: índice para GROUP BY rápido</span>
+    });
+}</pre>
+  </div>
+
+  <div class="section-title">Modelo SolicitudVestuario actualizado</div>
+
+  <div class="analysis-card">
+    <pre class="code-block"><span class="kw">class</span> SolicitudVestuario <span class="kw">extends</span> Model
+{
+    <span class="kw">protected</span> $connection = <span class="str">'copiasivso'</span>;
+    <span class="kw">protected</span> $table = <span class="str">'solicitudes_vestuario'</span>;
+
+    <span class="kw">protected</span> $fillable = [
+        <span class="str">'empleado_id'</span>, <span class="str">'producto_id'</span>,
+        <span class="ok">'producto_original_id'</span>,       <span class="comment">// ← NUEVO</span>
+        <span class="str">'partida_especifica_id'</span>,
+        <span class="ok">'dependencia_id'</span>, <span class="ok">'partida_id'</span>, <span class="ok">'tipo_partida_especifica_id'</span>,  <span class="comment">// ← denorm</span>
+        <span class="str">'anio'</span>, <span class="str">'talla'</span>, <span class="str">'cantidad'</span>,
+        <span class="str">'precio_unitario'</span>, <span class="str">'importe'</span>, <span class="str">'iva'</span>, <span class="str">'importe_total'</span>,
+        <span class="ok">'es_sustitucion'</span>,              <span class="comment">// ← NUEVO</span>
+        <span class="str">'no_partida_snapshot'</span>, <span class="str">'clave_partida_snapshot'</span>,
+        <span class="str">'clave_para_ejercicio_snapshot'</span>,
+        <span class="str">'legacy_concentrado_id'</span>,
+    ];
+
+    <span class="kw">protected</span> $casts = [
+        <span class="str">'es_sustitucion'</span> => <span class="str">'boolean'</span>,
+    ];
+
+    <span class="comment">// Producto FINAL (post-muestreo)</span>
+    <span class="kw">public function</span> producto(): BelongsTo
+    { <span class="kw">return</span> $this->belongsTo(Producto::class); }
+
+    <span class="comment">// Producto ORIGINAL (pre-muestreo, nullable)</span>
+    <span class="ok">public function productoOriginal(): BelongsTo
+    { return $this->belongsTo(Producto::class, 'producto_original_id'); }</span>
+
+    <span class="comment">// Relaciones denormalizadas (acceso directo)</span>
+    <span class="ok">public function dependencia(): BelongsTo
+    { return $this->belongsTo(Dependencia::class); }
+
+    public function partida(): BelongsTo
+    { return $this->belongsTo(Partida::class); }
+
+    public function tipoPartidaEspecifica(): BelongsTo
+    { return $this->belongsTo(TipoPartidaEspecifica::class); }</span>
+
+    <span class="comment">// Relaciones originales</span>
+    <span class="kw">public function</span> empleado(): BelongsTo
+    { <span class="kw">return</span> $this->belongsTo(Empleado::class); }
+
+    <span class="kw">public function</span> partidaEspecifica(): BelongsTo
+    { <span class="kw">return</span> $this->belongsTo(PartidaEspecifica::class); }
+
+    <span class="comment">// Helper: rellena FKs denormalizadas</span>
+    <span class="kw">public function</span> syncDenormFks(): void
+    {
+        $this->dependencia_id            = $this->empleado?->dependencia_id;
+        $this->partida_id                = $this->producto?->partida_id;
+        $this->tipo_partida_especifica_id = $this->producto?->tipo_partida_especifica_id;
+    }
+}</pre>
+  </div>
+
+  <div class="tip ok">
+    <strong>Resumen de cambios totales:</strong><br>
+    1. <code>dependencias.ur</code> → UNIQUE NOT NULL (ya no nullable)<br>
+    2. <code>delegaciones.ur</code> → nueva columna (nullable, indexed) para matching<br>
+    3. <code>productos.origen</code> → ENUM para distinguir de dónde viene el producto<br>
+    4. <code>solicitudes_vestuario.producto_original_id</code> → FK al producto pre-muestreo<br>
+    5. <code>solicitudes_vestuario.es_sustitucion</code> → boolean flag<br>
+    6. <code>solicitudes_vestuario.{dependencia_id, partida_id, tipo_pe_id}</code> → FKs denormalizadas<br>
+    7. Índice compuesto en solicitudes para queries rápidas
+  </div>
+</div>
+
+<script>
+function show(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

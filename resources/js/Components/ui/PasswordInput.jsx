@@ -19,13 +19,13 @@ export default function PasswordInput({
                 value={value}
                 onChange={onChange}
                 placeholder={placeholder}
-                className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 pr-24 text-sm text-zinc-900 outline-none transition-all placeholder:text-zinc-400 focus:ring-2 focus:ring-brand-gold/25 dark:border-zinc-700 dark:bg-zinc-900 dark:text-white dark:placeholder:text-zinc-600"
+                className="w-full rounded-xl border border-brand-gold/15 bg-white/50 px-4 py-3 text-sm text-zinc-900 outline-none transition-all placeholder:text-zinc-400 focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/15 dark:border-brand-gold/10 dark:bg-zinc-900/30 dark:text-white dark:placeholder:text-zinc-500 dark:focus:border-brand-gold/30"
                 autoComplete={autoComplete}
             />
             <button
                 type="button"
                 onClick={() => setShowPassword((current) => !current)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-500 transition hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-brand-gold/60 transition hover:text-brand-gold/80 dark:text-brand-gold/50 dark:hover:text-brand-gold/70"
             >
                 {showPassword ? 'Ocultar' : 'Mostrar'}
             </button>

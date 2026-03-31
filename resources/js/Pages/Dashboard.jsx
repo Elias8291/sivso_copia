@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, usePage } from '@inertiajs/react';
-import { ArrowRight, Building2, Calendar, ChevronRight, MapPin, User, Users, Users2 } from 'lucide-react';
+import { ArrowRight, Building2, Calendar, ChevronRight, MapPin, User, Users, Users2, Package, Shirt, ListTree, DollarSign } from 'lucide-react';
 
 const cardBase =
     'group relative flex flex-col rounded-2xl border border-zinc-200/80 bg-white/90 p-5 shadow-sm shadow-zinc-900/[0.03] transition-all duration-200 hover:border-zinc-300 hover:shadow-md hover:shadow-zinc-900/[0.06] dark:border-zinc-800/80 dark:bg-zinc-900/40 dark:hover:border-zinc-700 dark:hover:bg-zinc-900/60';
@@ -28,7 +28,28 @@ function QuickCard({ href, title, description, icon: Icon, routePattern }) {
     );
 }
 
-export default function Dashboard() {
+const fmtMoney = (v) =>
+    v != null
+        ? Number(v).toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
+        : '$0';
+
+const fmtNum = (v) => Number(v ?? 0).toLocaleString('es-MX');
+
+function StatCard({ label, value, icon: Icon, color = 'text-zinc-600 dark:text-zinc-400' }) {
+    return (
+        <div className="flex items-center gap-3 rounded-xl border border-zinc-200/80 bg-white/90 p-4 dark:border-zinc-800/80 dark:bg-zinc-900/40">
+            <div className={`flex size-10 shrink-0 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800 ${color}`}>
+                <Icon className="size-5" strokeWidth={2} />
+            </div>
+            <div>
+                <p className="text-lg font-bold tabular-nums text-zinc-900 dark:text-zinc-100">{value}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{label}</p>
+            </div>
+        </div>
+    );
+}
+
+export default function Dashboard({ stats = {}, ejercicio = 2025 }) {
     const user = usePage().props.auth?.user;
     const firstName = (user?.name || '').split(/\s+/)[0] || 'Usuario';
 
@@ -141,6 +162,25 @@ export default function Dashboard() {
                         </span>
                     </Link>
                 </section>
+
+                {stats && (
+                    <section aria-labelledby="dash-stats" className="mb-8">
+                        <h2 id="dash-stats" className="mb-4 text-xs font-bold uppercase tracking-[0.14em] text-zinc-400 dark:text-zinc-500">
+                            Ejercicio {ejercicio}
+                        </h2>
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                            <StatCard label="Empleados" value={fmtNum(stats.empleados)} icon={Users2} color="text-blue-600 dark:text-blue-400" />
+                            <StatCard label="Productos activos" value={fmtNum(stats.productos)} icon={Package} color="text-violet-600 dark:text-violet-400" />
+                            <StatCard label="Solicitudes" value={fmtNum(stats.solicitudes)} icon={Shirt} color="text-emerald-600 dark:text-emerald-400" />
+                            <StatCard label="Importe total" value={fmtMoney(stats.importe_total)} icon={DollarSign} color="text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                            <StatCard label="Delegaciones" value={fmtNum(stats.delegaciones)} icon={MapPin} />
+                            <StatCard label="Dependencias" value={fmtNum(stats.dependencias)} icon={Building2} />
+                            <StatCard label="Delegados" value={fmtNum(stats.delegados)} icon={Users} />
+                        </div>
+                    </section>
+                )}
 
                 <section aria-labelledby="dash-quick">
                     <div className="mb-4 flex items-center justify-between gap-2">

@@ -13,7 +13,6 @@
 /.zed
 /auth.json
 /node_modules
-/public/build
 /public/hot
 /public/storage
 /storage/*.key
@@ -22,3 +21,6 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Snapshots CSV muy grandes (GitHub límite 100 MB); exportar con artisan o copiar localmente
+/database/seeders/csv/copiasivso/concentrado.csv

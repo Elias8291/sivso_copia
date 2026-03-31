@@ -1,0 +1,28 @@
+-- SIVSO / copiasivso: UTF-8 en el servidor (ejecutar en MySQL/MariaDB con respaldo previo).
+--
+-- 1) Comprueba cómo está hoy (si sale latin1 o utf8 sin mb4, conviene alinear):
+--    SHOW VARIABLES LIKE 'character_set%';
+--    SHOW CREATE DATABASE copiasivso;
+--    SHOW CREATE TABLE concentrado;
+--
+-- 2) Base de datos (ajusta el nombre si no es copiasivso):
+-- ALTER DATABASE copiasivso CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+--
+-- 3) Tablas legacy con mucho texto (una por una; CONVERT reescribe datos según el charset declarado):
+-- ALTER TABLE concentrado CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+-- ALTER TABLE propuesta CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+-- ALTER TABLE delegacion CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+-- ALTER TABLE delegado CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+--
+-- 4) Tablas normalizadas del mismo esquema:
+-- ALTER TABLE productos CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+-- ALTER TABLE partidas CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+-- ALTER TABLE partidas_especificas CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+-- (repite para el resto de tablas varchar/text del mismo schema)
+--
+-- IMPORTANTE:
+-- - Si el texto ya está guardado como signo de interrogación (?) en la columna, cambiar charset
+--   NO recupera la tilde: el byte ya se perdió al importar o al guardar con mala codificación.
+--   Ahí hace falta reimportar desde un dump UTF-8 correcto o usar correcciones (p. ej. artisan sivso:fix-productos-delegacion-encoding).
+-- - Si los bytes en disco son UTF-8 pero la columna decía latin1, CONVERT suele arreglar la lectura.
+-- - Haz backup completo antes de ALTER.
