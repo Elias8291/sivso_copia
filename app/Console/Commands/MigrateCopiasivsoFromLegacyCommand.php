@@ -631,12 +631,7 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
             $k = $this->empleadoKey($row);
             $keys[$k] = $row;
         }
-        $delegacionByNue = [];
-        if (Schema::connection($conn)->hasTable('delegacion')) {
-            foreach (DB::connection($conn)->table('delegacion')->get() as $d) {
-                $delegacionByNue[trim((string) $d->nue)] = trim((string) $d->delegacion);
-            }
-        }
+        $delegacionLookup = $this->buildDelegacionClaveLookup($conn, $delIds);
         $empleadoIds = [];
         foreach ($keys as $k => $row) {
             $depId = null;
@@ -646,11 +641,8 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
             if ($depId === null && $row->ur !== null) {
                 $depId = $urMap[(int) $row->ur] ?? null;
             }
-            $delId = null;
+            $delId = $this->resolveDelegacionIdForEmpleadoRow($row, $delegacionLookup, $delIds);
             $nueTrim = trim((string) $row->nue);
-            if ($nueTrim !== '' && isset($delegacionByNue[$nueTrim], $delIds[$delegacionByNue[$nueTrim]])) {
-                $delId = $delIds[$delegacionByNue[$nueTrim]];
-            }
             $id = DB::connection($conn)->table('empleados')->insertGetId([
                 'nue' => $nueTrim !== '' ? $nueTrim : null,
                 'nombre' => $row->nombre_trab,
@@ -668,16 +660,118 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
         return $empleadoIds;
     }
 
+    /**
+     * Clave de persona en catálogo: nombre + apellidos + UR + dependencia (sin NUE: puede repetirse en la misma UR).
+     */
     private function empleadoKey(object $row): string
     {
         return implode('|', [
-            strtolower(trim((string) $row->nue)),
             strtolower(trim((string) $row->nombre_trab)),
             strtolower(trim((string) $row->apellp_trab)),
             strtolower(trim((string) $row->apellm_trab)),
             (string) ($row->ur ?? ''),
-            strtolower(trim((string) $row->dependencia)),
+            strtolower(trim((string) ($row->dependencia ?? ''))),
         ]);
+    }
+
+    /**
+     * @return array{
+     *   by_persona_ur: array<string, string>,
+     *   by_nue_ur: array<string, string>,
+     *   by_nue: array<string, string>
+     * }
+     */
+    private function buildDelegacionClaveLookup(string $conn, array $delIds): array
+    {
+        $byPersonaUr = [];
+        $byNueUr = [];
+        $byNue = [];
+
+        if (! Schema::connection($conn)->hasTable('delegacion')) {
+            return ['by_persona_ur' => $byPersonaUr, 'by_nue_ur' => $byNueUr, 'by_nue' => $byNue];
+        }
+
+        $cols = Schema::connection($conn)->getColumnListing('delegacion');
+        $colSet = array_flip($cols);
+        $hasNombreTrab = isset($colSet['nombre_trab']);
+        $hasApellp = isset($colSet['apellp_trab']);
+        $hasApellm = isset($colSet['apellm_trab']);
+
+        foreach (DB::connection($conn)->table('delegacion')->get() as $d) {
+            $clave = trim((string) $d->delegacion);
+            if ($clave === '' || ! isset($delIds[$clave])) {
+                continue;
+            }
+
+            $urD = isset($d->ur) && $d->ur !== null && $d->ur !== '' ? (int) $d->ur : null;
+            $nueT = isset($d->nue) ? trim((string) $d->nue) : '';
+
+            if ($hasNombreTrab || $hasApellp || $hasApellm) {
+                $fake = (object) [
+                    'nombre_trab' => $hasNombreTrab ? ($d->nombre_trab ?? '') : '',
+                    'apellp_trab' => $hasApellp ? ($d->apellp_trab ?? '') : '',
+                    'apellm_trab' => $hasApellm ? ($d->apellm_trab ?? '') : '',
+                    'ur' => $urD,
+                    'dependencia' => $d->dependencia ?? '',
+                ];
+                $pk = $this->empleadoKey($fake);
+                if ($pk !== '||||') {
+                    $byPersonaUr[$pk] = $clave;
+                }
+            }
+
+            if ($nueT !== '') {
+                if ($urD !== null) {
+                    $byNueUr[$nueT.'|'.$urD] = $clave;
+                } else {
+                    $byNue[$nueT] = $clave;
+                }
+            }
+        }
+
+        return [
+            'by_persona_ur' => $byPersonaUr,
+            'by_nue_ur' => $byNueUr,
+            'by_nue' => $byNue,
+        ];
+    }
+
+    /**
+     * Prioridad: coincidencia por misma clave persona+UR que en tabla delegacion (si hay columnas de nombre);
+     * luego NUE+UR; al final solo NUE.
+     *
+     * @param  array{by_persona_ur: array<string, string>, by_nue_ur: array<string, string>, by_nue: array<string, string>}  $lookup
+     */
+    private function resolveDelegacionIdForEmpleadoRow(object $row, array $lookup, array $delIds): ?int
+    {
+        $personaKey = $this->empleadoKey($row);
+        if ($personaKey !== '||||' && isset($lookup['by_persona_ur'][$personaKey])) {
+            $cl = $lookup['by_persona_ur'][$personaKey];
+
+            return $delIds[$cl] ?? null;
+        }
+
+        $nueTrim = trim((string) ($row->nue ?? ''));
+        if ($nueTrim === '') {
+            return null;
+        }
+
+        if ($row->ur !== null && $row->ur !== '') {
+            $k = $nueTrim.'|'.(int) $row->ur;
+            if (isset($lookup['by_nue_ur'][$k])) {
+                $cl = $lookup['by_nue_ur'][$k];
+
+                return $delIds[$cl] ?? null;
+            }
+        }
+
+        if (isset($lookup['by_nue'][$nueTrim])) {
+            $cl = $lookup['by_nue'][$nueTrim];
+
+            return $delIds[$cl] ?? null;
+        }
+
+        return null;
     }
 
     private function importSolicitudes(string $conn, $now, array $empleadoIds, array $productoIdsByLegacyPropuesta, int $anio, array $partidaEspecMap = []): void
