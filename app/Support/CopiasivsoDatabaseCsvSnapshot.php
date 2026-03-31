@@ -337,6 +337,9 @@ final class CopiasivsoDatabaseCsvSnapshot
         }
         $header = array_map(fn ($h) => trim((string) $h), $headerLine);
         $tableColumns = array_flip($connection->getSchemaBuilder()->getColumnListing($table));
+        $empleadosFkSets = $table === 'empleados'
+            ? self::empleadosParentIdSets($connection)
+            : null;
         $buffer = [];
         $total = 0;
         try {
@@ -354,6 +357,9 @@ final class CopiasivsoDatabaseCsvSnapshot
                 if ($row === []) {
                     continue;
                 }
+                if ($empleadosFkSets !== null) {
+                    $row = self::sanitizeEmpleadosFkRow($row, $empleadosFkSets);
+                }
                 $buffer[] = $row;
                 if (count($buffer) >= $chunkSize) {
                     $connection->table($table)->insert($buffer);
@@ -370,6 +376,68 @@ final class CopiasivsoDatabaseCsvSnapshot
         }
 
         return $total;
+    }
+
+    /**
+     * @return array{dep: array<int, true>, del: array<int, true>}
+     */
+    private static function empleadosParentIdSets(Connection $connection): array
+    {
+        $schema = $connection->getSchemaBuilder();
+        $dep = [];
+        $del = [];
+        if ($schema->hasTable('dependencias')) {
+            foreach ($connection->table('dependencias')->pluck('id')->all() as $id) {
+                $dep[(int) $id] = true;
+            }
+        }
+        if ($schema->hasTable('delegaciones')) {
+            foreach ($connection->table('delegaciones')->pluck('id')->all() as $id) {
+                $del[(int) $id] = true;
+            }
+        }
+
+        return ['dep' => $dep, 'del' => $del];
+    }
+
+    /**
+     * Evita 1452 si el CSV referencia dependencias/delegaciones inexistentes (snapshot desalineado o BD parcial).
+     *
+     * @param  array<string, mixed>  $row
+     * @param  array{dep: array<int, true>, del: array<int, true>}  $sets
+     * @return array<string, mixed>
+     */
+    private static function sanitizeEmpleadosFkRow(array $row, array $sets): array
+    {
+        $pairs = [
+            'dependencia_id' => $sets['dep'],
+            'delegacion_id' => $sets['del'],
+        ];
+        foreach ($pairs as $col => $valid) {
+            if (! array_key_exists($col, $row)) {
+                continue;
+            }
+            $v = $row[$col];
+            if ($v === null || $v === '') {
+                $row[$col] = null;
+
+                continue;
+            }
+            if (! is_numeric($v)) {
+                $row[$col] = null;
+
+                continue;
+            }
+            $id = (int) $v;
+            if ($id < 1 || ! isset($valid[$id])) {
+                $row[$col] = null;
+
+                continue;
+            }
+            $row[$col] = $id;
+        }
+
+        return $row;
     }
 
     private static function parseCsvCell(mixed $v): mixed
