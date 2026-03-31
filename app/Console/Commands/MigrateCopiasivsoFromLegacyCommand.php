@@ -12,34 +12,41 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
 {
     protected $signature = 'sivso:migrate-copiasivso-legacy
                             {--anio=2025 : Año para precios, partidas por ejercicio y solicitudes}
-                            {--force : Vacía tablas normalizadas y vuelve a importar}';
+                            {--force : Vacía tablas normalizadas en el destino y vuelve a importar}';
 
-    protected $description = 'Migra datos de concentrado, propuesta, dependences, delegacion y delegado (BD copiasivso) al esquema normalizado';
+    protected $description = 'Migra tablas legacy (concentrado, propuesta, dependences, delegacion, delegado) al esquema normalizado en la base destino (DB_*)';
 
     public function handle(): int
     {
-        $conn = 'copiasivso';
+        $target = (string) config('sivso.csv_snapshot_connection', 'copiasivso');
+        $source = (string) config('sivso.legacy_source_connection', 'sivso_legacy_source');
         $anio = (int) $this->option('anio');
-        $db = DB::connection($conn);
 
-        if (! $db->getSchemaBuilder()->hasTable('concentrado')) {
-            $dbName = (string) $db->getDatabaseName();
-            $this->error('La conexión «copiasivso» no tiene tabla «concentrado».');
-            $this->line("  Base de datos conectada: <fg=yellow>{$dbName}</>");
-            $this->line('  Revisa <fg=cyan>DB_DATABASE</> en .env (una sola base para Laravel + SIVSO).');
+        $src = DB::connection($source);
+        $tgt = DB::connection($target);
+
+        if (! $src->getSchemaBuilder()->hasTable('concentrado')) {
+            $this->error("La conexión origen «{$source}» no tiene tabla «concentrado».");
+            $this->line('  Origen (legacy): <fg=yellow>'.(string) $src->getDatabaseName().'</>');
+            $this->line('  Destino (normalizado): <fg=yellow>'.(string) $tgt->getDatabaseName().'</>');
+            $this->line('  En .env define <fg=cyan>SIVSO_LEGACY_SOURCE_DATABASE=copiasivso</> si los datos viejos están en otra base que <fg=cyan>DB_DATABASE</>.');
             $this->line('  Luego: <fg=cyan>php artisan config:clear</>');
 
             return self::FAILURE;
         }
 
-        if ($this->option('force')) {
-            $this->truncateNormalized($conn);
+        if (! $tgt->getSchemaBuilder()->hasTable('empleados')) {
+            $this->error("La conexión destino «{$target}» no tiene la tabla «empleados». Ejecuta migraciones sobre esa base (DB_DATABASE).");
+
+            return self::FAILURE;
         }
 
-        if (Schema::connection($conn)->hasTable('empleados')
-            && $db->table('empleados')->count() > 0
-            && ! $this->option('force')) {
-            $this->warn('Ya hay empleados en el esquema normalizado. Usa --force para reimportar.');
+        if ($this->option('force')) {
+            $this->truncateNormalized($target);
+        }
+
+        if ($tgt->table('empleados')->count() > 0 && ! $this->option('force')) {
+            $this->warn('Ya hay empleados en el destino. Usa --force para reimportar.');
 
             return self::INVALID;
         }
@@ -55,40 +62,41 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
             $t0 = microtime(true);
         };
 
+        $this->info("Origen legacy: «{$source}» → «{$src->getDatabaseName()}\"; destino: «{$target}» → «{$tgt->getDatabaseName()}».");
         $this->info('Importando catálogos, partidas, productos y empleados (sin transacción única; va mostrando cada paso)…');
-        $tiposByCodigo = $this->seedTiposPartidaEspecifica($conn, $now);
-        $this->ensureTiposFromPropuesta($conn, $now, $tiposByCodigo);
+        $tiposByCodigo = $this->seedTiposPartidaEspecifica($target, $now);
+        $this->ensureTiposFromPropuesta($source, $target, $now, $tiposByCodigo);
         $step('Tipos partida específica');
-        $depIds = $this->importDependencias($conn, $now);
+        $depIds = $this->importDependencias($source, $target, $now);
         $step('Dependencias');
-        $delIds = $this->importDelegaciones($conn, $now);
+        $delIds = $this->importDelegaciones($source, $target, $now);
         $step('Delegaciones');
-        $this->importDependenciaDelegacion($conn, $depIds, $delIds);
+        $this->importDependenciaDelegacion($source, $target, $depIds, $delIds);
         $step('Relación dependencia–delegación');
-        $this->importDelegados($conn, $now, $delIds);
+        $this->importDelegados($source, $target, $now, $delIds);
         $step('Delegados');
-        $partidaIds = $this->importPartidas($conn, $now);
+        $partidaIds = $this->importPartidas($source, $target, $now);
         $step('Partidas');
-        $partidaEspecMap = $this->importPartidasEspecificas($conn, $now, $partidaIds, $anio);
+        $partidaEspecMap = $this->importPartidasEspecificas($source, $target, $now, $partidaIds, $anio);
         $step('Partidas específicas (DISTINCT clave2025, descripcion)');
-        $this->importPartidasPorEjercicio($conn, $now, $partidaIds, $anio);
+        $this->importPartidasPorEjercicio($source, $target, $now, $partidaIds, $anio);
         $step('Partidas por ejercicio');
-        $productoIdsByLegacyPropuesta = $this->importProductosYPrecios($conn, $now, $partidaIds, $tiposByCodigo, $anio);
+        $productoIdsByLegacyPropuesta = $this->importProductosYPrecios($source, $target, $now, $partidaIds, $tiposByCodigo, $anio);
         $step('Productos y precios');
-        $empleadoIds = $this->importEmpleados($conn, $now, $depIds, $delIds);
+        $empleadoIds = $this->importEmpleados($source, $target, $now, $depIds, $delIds);
         $step('Empleados');
 
         $this->info('Importando solicitudes desde concentrado (suele ser el paso más largo)…');
-        $this->importSolicitudes($conn, now(), $empleadoIds, $productoIdsByLegacyPropuesta, $anio, $partidaEspecMap);
+        $this->importSolicitudes($source, $target, now(), $empleadoIds, $productoIdsByLegacyPropuesta, $anio, $partidaEspecMap);
 
-        $this->info('Migración completada (conexión copiasivso).');
+        $this->info("Migración completada hacia «{$tgt->getDatabaseName()}».");
 
         return self::SUCCESS;
     }
 
-    private function truncateNormalized(string $conn): void
+    private function truncateNormalized(string $target): void
     {
-        $db = DB::connection($conn);
+        $db = DB::connection($target);
         $db->statement('SET FOREIGN_KEY_CHECKS=0');
         foreach ([
             'solicitudes_vestuario',
@@ -114,7 +122,7 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
         $this->info('Tablas normalizadas vaciadas.');
     }
 
-    private function seedTiposPartidaEspecifica(string $conn, $now): array
+    private function seedTiposPartidaEspecifica(string $target, $now): array
     {
         $rows = [
             ['codigo' => 244, 'nombre' => 'Partida específica 244'],
@@ -122,7 +130,7 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
         ];
         $map = [];
         foreach ($rows as $r) {
-            $id = DB::connection($conn)->table('tipos_partida_especifica')->insertGetId([
+            $id = DB::connection($target)->table('tipos_partida_especifica')->insertGetId([
                 'codigo' => $r['codigo'],
                 'nombre' => $r['nombre'],
                 'created_at' => $now,
@@ -134,9 +142,9 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
         return $map;
     }
 
-    private function ensureTiposFromPropuesta(string $conn, $now, array &$tiposByCodigo): void
+    private function ensureTiposFromPropuesta(string $source, string $target, $now, array &$tiposByCodigo): void
     {
-        $codes = DB::connection($conn)->table('propuesta')->select('partida_especifica')->distinct()->pluck('partida_especifica');
+        $codes = DB::connection($source)->table('propuesta')->select('partida_especifica')->distinct()->pluck('partida_especifica');
         foreach ($codes as $codigo) {
             if ($codigo === null) {
                 continue;
@@ -145,7 +153,7 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
             if (isset($tiposByCodigo[$c])) {
                 continue;
             }
-            $id = DB::connection($conn)->table('tipos_partida_especifica')->insertGetId([
+            $id = DB::connection($target)->table('tipos_partida_especifica')->insertGetId([
                 'codigo' => $c,
                 'nombre' => 'Partida específica '.$c,
                 'created_at' => $now,
@@ -155,13 +163,13 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
         }
     }
 
-    private function importDependencias(string $conn, $now): array
+    private function importDependencias(string $source, string $target, $now): array
     {
         $this->line('    … dependencias: importando tabla dependences y fusionando con concentrado (puede tardar si hay muchas UR distintas)');
         $byKey = [];
-        foreach (DB::connection($conn)->table('dependences')->orderBy('id')->get() as $row) {
+        foreach (DB::connection($source)->table('dependences')->orderBy('id')->get() as $row) {
             $key = trim((string) $row->key);
-            $id = DB::connection($conn)->table('dependencias')->insertGetId([
+            $id = DB::connection($target)->table('dependencias')->insertGetId([
                 'codigo' => $key !== '' ? $key : null,
                 'ur' => null,
                 'nombre' => $row->name,
@@ -174,12 +182,12 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
         }
 
         $nameById = [];
-        foreach (DB::connection($conn)->table('dependencias')->get(['id', 'nombre']) as $d) {
+        foreach (DB::connection($target)->table('dependencias')->get(['id', 'nombre']) as $d) {
             $nameById[(int) $d->id] = (string) $d->nombre;
         }
 
         $seenUrNombre = [];
-        foreach (DB::connection($conn)->table('concentrado')->select('ur', 'dependencia', 'ur_dependencia')->distinct()->get() as $row) {
+        foreach (DB::connection($source)->table('concentrado')->select('ur', 'dependencia', 'ur_dependencia')->distinct()->get() as $row) {
             $nombre = trim((string) $row->dependencia);
             if ($nombre === '') {
                 continue;
@@ -191,10 +199,10 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
             }
             $seenUrNombre[$k] = true;
 
-            $existing = DB::connection($conn)->table('dependencias')->where('nombre', $row->dependencia)->first();
+            $existing = DB::connection($target)->table('dependencias')->where('nombre', $row->dependencia)->first();
             if ($existing) {
                 if ($ur !== null && $existing->ur === null) {
-                    $this->assignUrToDependenciaIfFree($conn, (int) $existing->id, $ur, $row->ur_dependencia, $now);
+                    $this->assignUrToDependenciaIfFree($target, (int) $existing->id, $ur, $row->ur_dependencia, $now);
                 }
 
                 continue;
@@ -202,19 +210,19 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
 
             $similarId = $this->findDependenciaIdBySimilarity($nombre, $nameById);
             if ($similarId !== null) {
-                $match = DB::connection($conn)->table('dependencias')->where('id', $similarId)->first();
+                $match = DB::connection($target)->table('dependencias')->where('id', $similarId)->first();
                 if ($match && $ur !== null && $match->ur === null) {
-                    $this->assignUrToDependenciaIfFree($conn, (int) $match->id, $ur, $row->ur_dependencia, $now);
+                    $this->assignUrToDependenciaIfFree($target, (int) $match->id, $ur, $row->ur_dependencia, $now);
                 }
 
                 continue;
             }
 
             $urInsert = $ur;
-            if ($ur !== null && $this->dependenciaUrTaken($conn, $ur, null)) {
+            if ($ur !== null && $this->dependenciaUrTaken($target, $ur, null)) {
                 $urInsert = null;
             }
-            $newId = (int) DB::connection($conn)->table('dependencias')->insertGetId([
+            $newId = (int) DB::connection($target)->table('dependencias')->insertGetId([
                 'codigo' => $urInsert !== null ? 'U'.$urInsert : ($ur !== null ? 'U'.$ur : null),
                 'ur' => $urInsert,
                 'nombre' => $row->dependencia,
@@ -225,12 +233,12 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
             $nameById[$newId] = (string) $row->dependencia;
         }
 
-        return $this->dependenciasMapByNombreUr($conn);
+        return $this->dependenciasMapByNombreUr($target);
     }
 
-    private function dependenciaUrTaken(string $conn, int $ur, ?int $exceptId): bool
+    private function dependenciaUrTaken(string $target, int $ur, ?int $exceptId): bool
     {
-        $q = DB::connection($conn)->table('dependencias')->where('ur', $ur);
+        $q = DB::connection($target)->table('dependencias')->where('ur', $ur);
         if ($exceptId !== null) {
             $q->where('id', '!=', $exceptId);
         }
@@ -238,12 +246,12 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
         return $q->exists();
     }
 
-    private function assignUrToDependenciaIfFree(string $conn, int $dependenciaId, int $ur, $urTexto, $now): void
+    private function assignUrToDependenciaIfFree(string $target, int $dependenciaId, int $ur, $urTexto, $now): void
     {
-        if ($this->dependenciaUrTaken($conn, $ur, $dependenciaId)) {
+        if ($this->dependenciaUrTaken($target, $ur, $dependenciaId)) {
             return;
         }
-        DB::connection($conn)->table('dependencias')->where('id', $dependenciaId)->update([
+        DB::connection($target)->table('dependencias')->where('id', $dependenciaId)->update([
             'ur' => $ur,
             'ur_texto' => $urTexto,
             'updated_at' => $now,
@@ -288,10 +296,10 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
         return $bestPct >= 90.0 ? $bestId : null;
     }
 
-    private function dependenciasMapByNombreUr(string $conn): array
+    private function dependenciasMapByNombreUr(string $target): array
     {
         $map = ['nombre' => [], 'ur' => []];
-        foreach (DB::connection($conn)->table('dependencias')->get() as $d) {
+        foreach (DB::connection($target)->table('dependencias')->get() as $d) {
             $map['nombre'][strtolower(trim($d->nombre))] = $d->id;
             if ($d->ur !== null) {
                 $map['ur'][(int) $d->ur] = $d->id;
@@ -301,10 +309,10 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
         return $map;
     }
 
-    private function importDelegaciones(string $conn, $now): array
+    private function importDelegaciones(string $source, string $target, $now): array
     {
-        $hasDelegacion = Schema::connection($conn)->hasTable('delegacion');
-        $hasDelegado = Schema::connection($conn)->hasTable('delegado');
+        $hasDelegacion = Schema::connection($source)->hasTable('delegacion');
+        $hasDelegado = Schema::connection($source)->hasTable('delegado');
 
         if (! $hasDelegacion && ! $hasDelegado) {
             $this->warn('No hay tablas legacy `delegacion` ni `delegado`: se omiten delegaciones, pivotes y NUE→delegación.');
@@ -314,7 +322,7 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
 
         $urByClave = [];
         if ($hasDelegacion) {
-            foreach (DB::connection($conn)->table('delegacion')->select('delegacion', 'ur')->distinct()->get() as $row) {
+            foreach (DB::connection($source)->table('delegacion')->select('delegacion', 'ur')->distinct()->get() as $row) {
                 $clave = trim((string) $row->delegacion);
                 if ($clave !== '' && $row->ur !== null) {
                     $urByClave[$clave] = (int) $row->ur;
@@ -324,12 +332,12 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
 
         $claves = collect();
         if ($hasDelegacion) {
-            foreach (DB::connection($conn)->table('delegacion')->select('delegacion')->distinct()->get() as $row) {
+            foreach (DB::connection($source)->table('delegacion')->select('delegacion')->distinct()->get() as $row) {
                 $claves->push(trim((string) $row->delegacion));
             }
         }
         if ($hasDelegado) {
-            foreach (DB::connection($conn)->table('delegado')->select('delegacion')->distinct()->get() as $row) {
+            foreach (DB::connection($source)->table('delegado')->select('delegacion')->distinct()->get() as $row) {
                 $claves->push(trim((string) $row->delegacion));
             }
         }
@@ -340,7 +348,7 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
                 continue;
             }
             $ur = $urByClave[$clave] ?? 0;
-            $id = DB::connection($conn)->table('delegaciones')->insertGetId([
+            $id = DB::connection($target)->table('delegaciones')->insertGetId([
                 'clave' => $clave,
                 'nombre' => null,
                 'ur' => $ur,
@@ -353,42 +361,42 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
         return $ids;
     }
 
-    private function importDependenciaDelegacion(string $conn, array $depIds, array $delIds): void
+    private function importDependenciaDelegacion(string $source, string $target, array $depIds, array $delIds): void
     {
-        if (! Schema::connection($conn)->hasTable('delegacion') || $delIds === []) {
+        if (! Schema::connection($source)->hasTable('delegacion') || $delIds === []) {
             return;
         }
         $nombreMap = $depIds['nombre'];
-        foreach (DB::connection($conn)->table('delegacion')->get() as $row) {
+        foreach (DB::connection($source)->table('delegacion')->get() as $row) {
             $depNombre = strtolower(trim((string) $row->dependencia));
             $clave = trim((string) $row->delegacion);
             if (! isset($nombreMap[$depNombre], $delIds[$clave])) {
                 continue;
             }
-            DB::connection($conn)->table('dependencia_delegacion')->insertOrIgnore([
+            DB::connection($target)->table('dependencia_delegacion')->insertOrIgnore([
                 'dependencia_id' => $nombreMap[$depNombre],
                 'delegacion_id' => $delIds[$clave],
             ]);
         }
     }
 
-    private function importDelegados(string $conn, $now, array $delIds): void
+    private function importDelegados(string $source, string $target, $now, array $delIds): void
     {
-        if (! Schema::connection($conn)->hasTable('delegado') || $delIds === []) {
+        if (! Schema::connection($source)->hasTable('delegado') || $delIds === []) {
             return;
         }
-        foreach (DB::connection($conn)->table('delegado')->get() as $row) {
+        foreach (DB::connection($source)->table('delegado')->get() as $row) {
             $nombre = trim((string) $row->nombre);
             $clave = trim((string) $row->delegacion);
             if ($nombre === '' || ! isset($delIds[$clave])) {
                 continue;
             }
-            $delegadoId = DB::connection($conn)->table('delegados')->insertGetId([
+            $delegadoId = DB::connection($target)->table('delegados')->insertGetId([
                 'nombre_completo' => $nombre,
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
-            DB::connection($conn)->table('delegado_delegacion')->insert([
+            DB::connection($target)->table('delegado_delegacion')->insert([
                 'delegado_id' => $delegadoId,
                 'delegacion_id' => $delIds[$clave],
             ]);
@@ -400,19 +408,19 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
      * Descripción de partida: primero propuesta (campo descripcion por número de partida); si falta, partida_descripcion en concentrado.
      * La clave presupuestal de la partida (clave_partida) no va aquí: va en partidas_por_ejercicio y en cada partida_especifica.
      */
-    private function importPartidas(string $conn, $now): array
+    private function importPartidas(string $source, string $target, $now): array
     {
         $nums = collect();
-        foreach (DB::connection($conn)->table('concentrado')->whereNotNull('no_partida')->select('no_partida')->distinct()->get() as $row) {
+        foreach (DB::connection($source)->table('concentrado')->whereNotNull('no_partida')->select('no_partida')->distinct()->get() as $row) {
             $nums->push((int) $row->no_partida);
         }
-        foreach (DB::connection($conn)->table('propuesta')->select('partida')->distinct()->get() as $row) {
+        foreach (DB::connection($source)->table('propuesta')->select('partida')->distinct()->get() as $row) {
             $nums->push((int) $row->partida);
         }
         $nums = $nums->unique()->filter()->values();
 
         $descProp = [];
-        foreach (DB::connection($conn)->table('propuesta')->whereNotNull('descripcion')->orderBy('id')->get(['partida', 'descripcion']) as $r) {
+        foreach (DB::connection($source)->table('propuesta')->whereNotNull('descripcion')->orderBy('id')->get(['partida', 'descripcion']) as $r) {
             $no = (int) $r->partida;
             $t = trim((string) $r->descripcion);
             if ($t === '') {
@@ -425,7 +433,7 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
         }
 
         $descConc = [];
-        DB::connection($conn)->table('concentrado')
+        DB::connection($source)->table('concentrado')
             ->whereNotNull('no_partida')
             ->whereNotNull('partida_descripcion')
             ->orderBy('id')
@@ -449,7 +457,7 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
             if (! $desc) {
                 $desc = $descConc[$no]['text'] ?? null;
             }
-            $id = DB::connection($conn)->table('partidas')->insertGetId([
+            $id = DB::connection($target)->table('partidas')->insertGetId([
                 'no_partida' => $no,
                 'descripcion' => $desc,
                 'created_at' => $now,
@@ -468,15 +476,15 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
      *
      * @return array<string, int> clave interna DISTINCT + "|{$anio}" => id
      */
-    private function importPartidasEspecificas(string $conn, $now, array $partidaIds, int $anio): array
+    private function importPartidasEspecificas(string $source, string $target, $now, array $partidaIds, int $anio): array
     {
-        if (! Schema::connection($conn)->hasTable('partidas_especificas')) {
+        if (! Schema::connection($target)->hasTable('partidas_especificas')) {
             return [];
         }
 
         $agg = [];
         $peChunk = 0;
-        DB::connection($conn)->table('concentrado')
+        DB::connection($source)->table('concentrado')
             ->whereNotNull('clave2025')
             ->where('clave2025', '!=', '')
             ->orderBy('id')
@@ -523,7 +531,7 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
                 continue;
             }
             $partidaId = $partidaIds[$meta['no_partida']];
-            $id = (int) DB::connection($conn)->table('partidas_especificas')->insertGetId([
+            $id = (int) DB::connection($target)->table('partidas_especificas')->insertGetId([
                 'partida_id' => $partidaId,
                 'anio' => $anio,
                 'clave' => SpanishQuestionMarkArtifacts::fix($meta['clave']),
@@ -551,10 +559,10 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
         return json_encode([$claveTrimmed, $descripcion], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
 
-    private function importPartidasPorEjercicio(string $conn, $now, array $partidaIds, int $anio): void
+    private function importPartidasPorEjercicio(string $source, string $target, $now, array $partidaIds, int $anio): void
     {
         $metaPorNo = [];
-        DB::connection($conn)->table('concentrado')
+        DB::connection($source)->table('concentrado')
             ->whereNotNull('no_partida')
             ->orderBy('id')
             ->chunk(10000, function ($chunk) use (&$metaPorNo) {
@@ -577,7 +585,7 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
 
         foreach ($partidaIds as $no => $partidaId) {
             $m = $metaPorNo[$no] ?? ['clave_partida' => null, 'clave_presupuestal' => null];
-            DB::connection($conn)->table('partidas_por_ejercicio')->insert([
+            DB::connection($target)->table('partidas_por_ejercicio')->insert([
                 'partida_id' => $partidaId,
                 'anio' => $anio,
                 'no_partida_snapshot' => $no,
@@ -590,16 +598,16 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
         }
     }
 
-    private function importProductosYPrecios(string $conn, $now, array $partidaIds, array $tiposByCodigo, int $anio): array
+    private function importProductosYPrecios(string $source, string $target, $now, array $partidaIds, array $tiposByCodigo, int $anio): array
     {
         $map = [];
-        foreach (DB::connection($conn)->table('propuesta')->orderBy('id')->get() as $p) {
+        foreach (DB::connection($source)->table('propuesta')->orderBy('id')->get() as $p) {
             $no = (int) $p->partida;
             $tipoCod = (int) $p->partida_especifica;
             if (! isset($partidaIds[$no], $tiposByCodigo[$tipoCod])) {
                 continue;
             }
-            $productoId = DB::connection($conn)->table('productos')->insertGetId([
+            $productoId = DB::connection($target)->table('productos')->insertGetId([
                 'partida_id' => $partidaIds[$no],
                 'tipo_partida_especifica_id' => $tiposByCodigo[$tipoCod],
                 'lote' => (int) $p->lote,
@@ -613,7 +621,7 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
                 'updated_at' => $now,
             ]);
             $map[$p->id] = $productoId;
-            DB::connection($conn)->table('producto_precios')->insert([
+            DB::connection($target)->table('producto_precios')->insert([
                 'producto_id' => $productoId,
                 'anio' => $anio,
                 'precio_unitario' => $p->precio_unitario,
@@ -627,16 +635,16 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
         return $map;
     }
 
-    private function importEmpleados(string $conn, $now, array $depIds, array $delIds): array
+    private function importEmpleados(string $source, string $target, $now, array $depIds, array $delIds): array
     {
         $nombreMap = $depIds['nombre'];
         $urMap = $depIds['ur'];
         $keys = [];
-        foreach (DB::connection($conn)->table('concentrado')->select('nue', 'nombre_trab', 'apellp_trab', 'apellm_trab', 'ur', 'dependencia')->distinct()->get() as $row) {
+        foreach (DB::connection($source)->table('concentrado')->select('nue', 'nombre_trab', 'apellp_trab', 'apellm_trab', 'ur', 'dependencia')->distinct()->get() as $row) {
             $k = LegacyEmpleadosDelegacionMapper::empleadoKey($row);
             $keys[$k] = $row;
         }
-        $delegacionLookup = LegacyEmpleadosDelegacionMapper::buildDelegacionClaveLookup($conn, $delIds);
+        $delegacionLookup = LegacyEmpleadosDelegacionMapper::buildDelegacionClaveLookup($source, $delIds);
         $empleadoIds = [];
         foreach ($keys as $k => $row) {
             $depId = null;
@@ -648,7 +656,7 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
             }
             $delId = LegacyEmpleadosDelegacionMapper::resolveDelegacionIdForEmpleadoRow($row, $delegacionLookup, $delIds);
             $nueTrim = trim((string) $row->nue);
-            $id = DB::connection($conn)->table('empleados')->insertGetId([
+            $id = DB::connection($target)->table('empleados')->insertGetId([
                 'nue' => $nueTrim !== '' ? $nueTrim : null,
                 'nombre' => $row->nombre_trab,
                 'apellido_paterno' => $row->apellp_trab,
@@ -665,11 +673,12 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
         return $empleadoIds;
     }
 
-    private function importSolicitudes(string $conn, $now, array $empleadoIds, array $productoIdsByLegacyPropuesta, int $anio, array $partidaEspecMap = []): void
+    private function importSolicitudes(string $source, string $target, $now, array $empleadoIds, array $productoIdsByLegacyPropuesta, int $anio, array $partidaEspecMap = []): void
     {
-        $db = DB::connection($conn);
+        $dbSource = DB::connection($source);
+        $dbTarget = DB::connection($target);
         $propuestaByMatch = [];
-        foreach ($db->table('propuesta')->get() as $p) {
+        foreach ($dbSource->table('propuesta')->get() as $p) {
             $mk = (int) $p->partida.'
 '.strtolower(trim((string) $p->descripcion)).'
 '.(string) $p->precio_unitario;
@@ -677,17 +686,17 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
                 $propuestaByMatch[$mk] = $p->id;
             }
         }
-        $tiposByCodigo = $db->table('tipos_partida_especifica')->pluck('id', 'codigo')->all();
-        $partidaNoToId = $db->table('partidas')->pluck('id', 'no_partida')->all();
+        $tiposByCodigo = $dbTarget->table('tipos_partida_especifica')->pluck('id', 'codigo')->all();
+        $partidaNoToId = $dbTarget->table('partidas')->pluck('id', 'no_partida')->all();
         $defaultTipoId = $tiposByCodigo[244] ?? reset($tiposByCodigo);
 
         $empleadoDepMap = [];
-        foreach ($db->table('empleados')->select('id', 'dependencia_id')->get() as $e) {
+        foreach ($dbTarget->table('empleados')->select('id', 'dependencia_id')->get() as $e) {
             $empleadoDepMap[(int) $e->id] = $e->dependencia_id;
         }
 
         $productoMeta = [];
-        foreach ($db->table('productos')->select('id', 'partida_id', 'tipo_partida_especifica_id')->get() as $p) {
+        foreach ($dbTarget->table('productos')->select('id', 'partida_id', 'tipo_partida_especifica_id')->get() as $p) {
             $productoMeta[(int) $p->id] = [
                 'partida_id' => $p->partida_id,
                 'tipo_pe_id' => $p->tipo_partida_especifica_id,
@@ -698,12 +707,12 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
         $batch = [];
         $chunkNum = 0;
 
-        $db->table('concentrado')->orderBy('id')->chunk(2000, function ($rows) use (
+        $dbSource->table('concentrado')->orderBy('id')->chunk(2000, function ($rows) use (
             &$batch,
             &$orphanProductoCache,
             &$productoMeta,
             &$chunkNum,
-            $conn,
+            $target,
             $now,
             $empleadoIds,
             $empleadoDepMap,
@@ -740,7 +749,7 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
                         if (isset($orphanProductoCache[$cacheKey])) {
                             $productoId = $orphanProductoCache[$cacheKey];
                         } else {
-                            $productoId = DB::connection($conn)->table('productos')->insertGetId([
+                            $productoId = DB::connection($target)->table('productos')->insertGetId([
                                 'partida_id' => $partidaId,
                                 'tipo_partida_especifica_id' => $defaultTipoId,
                                 'lote' => null,
@@ -758,7 +767,7 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
                                 'partida_id' => $partidaId,
                                 'tipo_pe_id' => $defaultTipoId,
                             ];
-                            DB::connection($conn)->table('producto_precios')->insert([
+                            DB::connection($target)->table('producto_precios')->insert([
                                 'producto_id' => $productoId,
                                 'anio' => $anio,
                                 'precio_unitario' => $c->precio_unitario ?? 0,
@@ -806,14 +815,14 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
                     'updated_at' => $now,
                 ];
                 if (count($batch) >= 400) {
-                    DB::connection($conn)->table('solicitudes_vestuario')->insert($batch);
+                    DB::connection($target)->table('solicitudes_vestuario')->insert($batch);
                     $batch = [];
                 }
             }
         });
 
         if ($batch !== []) {
-            DB::connection($conn)->table('solicitudes_vestuario')->insert($batch);
+            DB::connection($target)->table('solicitudes_vestuario')->insert($batch);
         }
     }
 }

@@ -256,6 +256,14 @@ final class CopiasivsoDatabaseCsvSnapshot
     }
 
     /**
+     * @return array<int, string>|false
+     */
+    public static function readCsvDataLine($handle): array|false
+    {
+        return self::readCsvLine($handle);
+    }
+
+    /**
      * @return array<int, array<string, mixed>>
      */
     public static function readCsvRows(string $csvPath): array
@@ -314,6 +322,7 @@ final class CopiasivsoDatabaseCsvSnapshot
             return 0;
         }
         $header = array_map(fn ($h) => trim((string) $h), $headerLine);
+        $tableColumns = array_flip($connection->getSchemaBuilder()->getColumnListing($table));
         $buffer = [];
         $total = 0;
         try {
@@ -323,10 +332,13 @@ final class CopiasivsoDatabaseCsvSnapshot
                 }
                 $row = [];
                 foreach ($header as $i => $col) {
-                    if ($col === '') {
+                    if ($col === '' || ! isset($tableColumns[$col])) {
                         continue;
                     }
                     $row[$col] = self::parseCsvCell($data[$i] ?? null);
+                }
+                if ($row === []) {
+                    continue;
                 }
                 $buffer[] = $row;
                 if (count($buffer) >= $chunkSize) {
