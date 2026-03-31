@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-final class ProductosSeeder extends AbstractCopiasivsoTableSeeder
+final class ProductosSeeder extends AbstractCopiasivsoCsvTableSeeder
 {
     protected function table(): string
     {

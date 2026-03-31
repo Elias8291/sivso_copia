@@ -6,9 +6,9 @@ use App\Support\CopiasivsoExcelSnapshot;
 use Illuminate\Database\Seeder;
 
 /**
- * Ejecuta todos los seeders de tablas copiasivso en orden de dependencias (FK).
+ * Ruta legada: datos desde .xlsx. El flujo principal es CSV: CopiasivsoCsvSeeder (un seeder por tabla).
  *
- * Ejemplo de uno solo: php artisan db:seed --class=Database\\Seeders\\DelegacionesSeeder
+ * Ejemplo de una tabla: php artisan db:seed --class=Database\\Seeders\\DelegacionesSeeder
  */
 class CopiasivsoSeeder extends Seeder
 {

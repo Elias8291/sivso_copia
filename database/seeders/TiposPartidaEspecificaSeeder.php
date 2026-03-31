@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-final class TiposPartidaEspecificaSeeder extends AbstractCopiasivsoTableSeeder
+final class TiposPartidaEspecificaSeeder extends AbstractCopiasivsoCsvTableSeeder
 {
     protected function table(): string
     {

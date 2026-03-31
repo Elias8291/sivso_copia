@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-final class PartidasEspecificasSeeder extends AbstractCopiasivsoTableSeeder
+final class PartidasEspecificasSeeder extends AbstractCopiasivsoCsvTableSeeder
 {
     protected function table(): string
     {

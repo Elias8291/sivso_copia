@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * 1) Reconcilia delegacion_id (tabla legacy delegacion).
- * 2) Exporta «empleados» al CSV del snapshot (mismas columnas que la BD) para CopiasivsoFromCsvSeeder.
+ * 2) Exporta «empleados» al CSV del snapshot (mismas columnas que la BD) para CopiasivsoCsvSeeder.
  *
  * Si la tabla empleados está vacía pero empleados.csv del snapshot aún tiene filas de datos, no sobrescribe
  * (evita borrar miles de filas del repo tras un TRUNCATE). Fuerza con SIVSO_SYNC_EMPLEADOS_CSV_ALLOW_EMPTY=true.

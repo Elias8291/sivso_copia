@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-final class PartidasPorEjercicioSeeder extends AbstractCopiasivsoTableSeeder
+final class PartidasPorEjercicioSeeder extends AbstractCopiasivsoCsvTableSeeder
 {
     protected function table(): string
     {

@@ -125,7 +125,7 @@ class RestoreEmpleadosSnapshotCsvCommand extends Command
         fclose($out);
 
         $this->info("Filas escritas (sin cabecera): {$written}");
-        $this->line('Siguiente: `php artisan db:seed` o `php artisan db:seed --class=CopiasivsoFromCsvSeeder`');
+        $this->line('Siguiente: `php artisan db:seed` o `php artisan db:seed --class=CopiasivsoCsvSeeder`');
 
         return self::SUCCESS;
     }

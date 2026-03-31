@@ -392,12 +392,9 @@ final class CopiasivsoDatabaseCsvSnapshot
     }
 
     /**
-     * Vacía las tablas del manifest (orden inverso a inserción) y vuelve a cargar desde los CSV del mismo directorio.
-     * Solo MySQL/MariaDB.
-     *
-     * @return array{truncated: int, inserted: array<string, int>}
+     * @return array<int, string>
      */
-    public static function importFromDirectory(Connection $connection, string $absoluteDir): array
+    public static function manifestInsertOrder(string $absoluteDir): array
     {
         $manifestPath = $absoluteDir.DIRECTORY_SEPARATOR.'_manifest.json';
         if (! is_readable($manifestPath)) {
@@ -407,12 +404,19 @@ final class CopiasivsoDatabaseCsvSnapshot
         if (! is_array($decoded) || ! isset($decoded['insert_order']) || ! is_array($decoded['insert_order'])) {
             throw new RuntimeException('Manifest inválido: se requiere la clave insert_order (array).');
         }
-        /** @var array<int, string> $insertOrder */
-        $insertOrder = array_values(array_filter(array_map('strval', $decoded['insert_order'])));
 
+        return array_values(array_filter(array_map('strval', $decoded['insert_order'])));
+    }
+
+    /**
+     * TRUNCATE de las tablas listadas en el manifest (orden inverso a insert_order). Solo MySQL/MariaDB.
+     */
+    public static function truncateSnapshotTables(Connection $connection, string $absoluteDir): int
+    {
+        $insertOrder = self::manifestInsertOrder($absoluteDir);
         $driver = $connection->getDriverName();
         if (! in_array($driver, ['mysql', 'mariadb'], true)) {
-            throw new RuntimeException("La importación desde CSV solo está soportada con mysql/mariadb; conexión actual: {$driver}");
+            throw new RuntimeException("La importación CSV solo está soportada con mysql/mariadb; conexión actual: {$driver}");
         }
 
         $schema = $connection->getSchemaBuilder();
@@ -426,7 +430,25 @@ final class CopiasivsoDatabaseCsvSnapshot
             $connection->statement("TRUNCATE TABLE `{$safe}`");
             $truncated++;
         }
+        $connection->statement('SET FOREIGN_KEY_CHECKS=1');
 
+        return $truncated;
+    }
+
+    /**
+     * INSERT desde {tabla}.csv por cada entrada de insert_order (sin TRUNCATE).
+     *
+     * @return array<string, int>
+     */
+    public static function insertSnapshotFromDirectory(Connection $connection, string $absoluteDir): array
+    {
+        $insertOrder = self::manifestInsertOrder($absoluteDir);
+        $driver = $connection->getDriverName();
+        if (! in_array($driver, ['mysql', 'mariadb'], true)) {
+            throw new RuntimeException("La importación CSV solo está soportada con mysql/mariadb; conexión actual: {$driver}");
+        }
+
+        $schema = $connection->getSchemaBuilder();
         $inserted = [];
         foreach ($insertOrder as $table) {
             $csvPath = $absoluteDir.DIRECTORY_SEPARATOR.$table.'.csv';
@@ -437,7 +459,20 @@ final class CopiasivsoDatabaseCsvSnapshot
             }
             $inserted[$table] = self::insertFromCsvFile($connection, $table, $csvPath);
         }
-        $connection->statement('SET FOREIGN_KEY_CHECKS=1');
+
+        return $inserted;
+    }
+
+    /**
+     * Vacía las tablas del manifest (orden inverso a inserción) y vuelve a cargar desde los CSV del mismo directorio.
+     * Solo MySQL/MariaDB.
+     *
+     * @return array{truncated: int, inserted: array<string, int>}
+     */
+    public static function importFromDirectory(Connection $connection, string $absoluteDir): array
+    {
+        $truncated = self::truncateSnapshotTables($connection, $absoluteDir);
+        $inserted = self::insertSnapshotFromDirectory($connection, $absoluteDir);
 
         return ['truncated' => $truncated, 'inserted' => $inserted];
     }

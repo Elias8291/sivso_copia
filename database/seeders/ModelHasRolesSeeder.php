@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-final class ModelHasRolesSeeder extends AbstractCopiasivsoTableSeeder
+final class ModelHasRolesSeeder extends AbstractCopiasivsoCsvTableSeeder
 {
     protected function table(): string
     {

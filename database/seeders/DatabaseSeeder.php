@@ -12,8 +12,8 @@ class DatabaseSeeder extends Seeder
     use WithoutModelEvents;
 
     /**
-     * Orden: superusuario → snapshot CSV (si hay .csv) → snapshot Excel (si hay .xlsx).
-     * Si existen ambos, Excel vuelve a truncar/cargar después del CSV.
+     * Orden: superusuario → RBAC → CopiasivsoCsvSeeder (truncado + seeders por tabla CSV) → reconciliación delegación.
+     * Si hay snapshot Excel (.xlsx + manifest), CopiasivsoSeeder corre después y sustituye datos.
      *
      * Desactivar todo el bloque copiasivso: SIVSO_SKIP_DATA_SEED=true en .env
      */
@@ -43,7 +43,7 @@ class DatabaseSeeder extends Seeder
         $xlsxFiles = glob($xlsxDir.DIRECTORY_SEPARATOR.'*.xlsx') ?: [];
 
         if (is_readable($csvManifest) && $csvFiles !== []) {
-            $this->call(CopiasivsoFromCsvSeeder::class);
+            $this->call(CopiasivsoCsvSeeder::class);
             $this->call(EmpleadosReconcileDelegacionSeeder::class);
         }
 

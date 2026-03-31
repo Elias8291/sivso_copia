@@ -42,7 +42,7 @@ class ExportCopiasivsoDatabaseCsvCommand extends Command
         $result = CopiasivsoDatabaseCsvSnapshot::export($connection, $absoluteDir, null, [], $chunk);
 
         $this->info('Tablas: '.count($result['tables']).' — manifest: insert_order con '.count($result['order']).' tablas.');
-        $this->line('Siguiente paso: `php artisan db:seed` (CSV + reconciliación empleados.delegacion_id si existe tabla «delegacion»).');
+        $this->line('Siguiente paso: `php artisan db:seed` (CopiasivsoCsvSeeder + reconciliación empleados.delegacion_id si aplica).');
         $this->line('Regenerar solo empleados.csv: `php artisan db:seed --class=SyncEmpleadosCsvToSnapshotSeeder` (no pisa el CSV si la BD está vacía y el snapshot tenía datos).');
         $this->line('Restaurar empleados.csv desde export: `php artisan sivso:restore-empleados-snapshot-csv`.');
 
