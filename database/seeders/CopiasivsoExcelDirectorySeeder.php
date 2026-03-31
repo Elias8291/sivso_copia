@@ -8,7 +8,8 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * TRUNCATE (orden inverso al manifest) + INSERT desde database/seeders/xlsx/copiasivso/{tabla}.xlsx
- * según _manifest.json (mismo flujo que exportó sivso:export-database-xlsx).
+ * según _manifest.json (mismo orden que exportó sivso:export-database-xlsx).
+ * No se invoca desde DatabaseSeeder; solo si lo ejecutas explícitamente.
  *
  *   php artisan db:seed --class=CopiasivsoExcelDirectorySeeder
  */

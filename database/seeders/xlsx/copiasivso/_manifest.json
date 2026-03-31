@@ -49,5 +49,5 @@
         "solicitudes_vestuario",
         "users"
     ],
-    "note": "Cargar en destino: php artisan db:seed --class=CopiasivsoExcelDirectorySeeder"
+    "note": "Respaldo/archivo. Import opcional (no en DatabaseSeeder): php artisan db:seed --class=CopiasivsoExcelDirectorySeeder"
 }

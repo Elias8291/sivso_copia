@@ -13,7 +13,7 @@ class ExportCopiasivsoDatabaseXlsxCommand extends Command
                             {--dir= : Carpeta absoluta de salida (por defecto database/seeders/xlsx/copiasivso)}
                             {--chunk=2000 : Filas por consulta al volcar cada tabla}';
 
-    protected $description = 'Exporta cada tabla de la base a un .xlsx + _manifest.json (orden insert por FK) para CopiasivsoExcelDirectorySeeder';
+    protected $description = 'Exporta cada tabla a un .xlsx + _manifest.json (orden insert por FK); respaldo/archivo, import opcional vía CopiasivsoExcelDirectorySeeder';
 
     public function handle(): int
     {
@@ -48,8 +48,7 @@ class ExportCopiasivsoDatabaseXlsxCommand extends Command
         $result = CopiasivsoExcelSnapshot::export($connection, $absoluteDir, null, [], $chunk);
 
         $this->info('Tablas: '.count($result['tables']).' — manifest: insert_order con '.count($result['order']).' tablas.');
-        $this->line('Importar en otra instalación (mismo esquema): `php artisan db:seed --class=CopiasivsoExcelDirectorySeeder`.');
-        $this->line('Si usas también snapshot CSV en db:seed, el Excel corre después y sustituye datos.');
+        $this->line('Solo si quieres cargar desde Excel (no forma parte de `db:seed` por defecto): `php artisan db:seed --class=CopiasivsoExcelDirectorySeeder`.');
 
         return self::SUCCESS;
     }

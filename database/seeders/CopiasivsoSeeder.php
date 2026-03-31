@@ -7,8 +7,8 @@ use Illuminate\Database\Seeder;
 
 /**
  * Carga tabla por tabla desde .xlsx (cada seeder hace TRUNCATE + insert de un solo archivo).
- * El flujo recomendado para migrar una base completa es exportar con `sivso:export-database-xlsx`
- * e importar con CopiasivsoExcelDirectorySeeder (respeta _manifest.json y FK).
+ * Para importar todo el directorio de una vez (opcional): `db:seed --class=CopiasivsoExcelDirectorySeeder`.
+ * La migración habitual de datos en `db:seed` es por CSV (`CopiasivsoCsvSeeder`), no por Excel.
  *
  * Ejemplo manual: php artisan db:seed --class=Database\\Seeders\\DelegacionesSeeder
  */

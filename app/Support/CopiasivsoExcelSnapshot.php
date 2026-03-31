@@ -334,7 +334,7 @@ final class CopiasivsoExcelSnapshot
             'format' => 'xlsx',
             'tables' => $tables,
             'insert_order' => $order,
-            'note' => 'Cargar en destino: php artisan db:seed --class=CopiasivsoExcelDirectorySeeder',
+            'note' => 'Respaldo/archivo. Import opcional (no en DatabaseSeeder): php artisan db:seed --class=CopiasivsoExcelDirectorySeeder',
         ];
         file_put_contents(
             $absoluteDir.DIRECTORY_SEPARATOR.'_manifest.json',

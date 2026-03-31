@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Support\CopiasivsoDatabaseCsvSnapshot;
-use App\Support\CopiasivsoExcelSnapshot;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -13,7 +12,7 @@ class DatabaseSeeder extends Seeder
 
     /**
      * Orden: superusuario → RBAC → CopiasivsoCsvSeeder (CSV) → reconciliación delegación.
-     * Si hay snapshot Excel (sivso:export-database-xlsx), CopiasivsoExcelDirectorySeeder corre después y sustituye datos desde .xlsx + _manifest.json.
+     * Los .xlsx (sivso:export-database-xlsx) son solo respaldo/archivo; no se cargan aquí. Importación opcional: db:seed --class=CopiasivsoExcelDirectorySeeder.
      *
      * Desactivar todo el bloque copiasivso: SIVSO_SKIP_DATA_SEED=true en .env
      */
@@ -38,17 +37,8 @@ class DatabaseSeeder extends Seeder
         $csvManifest = $csvDir.DIRECTORY_SEPARATOR.'_manifest.json';
         $csvFiles = glob($csvDir.DIRECTORY_SEPARATOR.'*.csv') ?: [];
 
-        $xlsxDir = CopiasivsoExcelSnapshot::excelDirectoryAbsolute();
-        $xlsxManifest = $xlsxDir.DIRECTORY_SEPARATOR.'_manifest.json';
-        $xlsxFiles = glob($xlsxDir.DIRECTORY_SEPARATOR.'*.xlsx') ?: [];
-
         if (is_readable($csvManifest) && $csvFiles !== []) {
             $this->call(CopiasivsoCsvSeeder::class);
-            $this->call(EmpleadosReconcileDelegacionSeeder::class);
-        }
-
-        if (is_readable($xlsxManifest) && $xlsxFiles !== []) {
-            $this->call(CopiasivsoExcelDirectorySeeder::class);
             $this->call(EmpleadosReconcileDelegacionSeeder::class);
         }
 
