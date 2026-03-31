@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Delegados (copiasivso)</title>
+    <title>Delegados — {{ $database_name }}</title>
     <style>
         body { font-family: system-ui, sans-serif; margin: 1rem; }
         table { border-collapse: collapse; width: 100%; max-width: 960px; }
@@ -15,7 +15,7 @@
 <body>
     <p><a href="{{ url('/dashboard') }}">← Volver</a></p>
     <h1>Delegados</h1>
-    <p>Ejercicio de referencia: <strong>{{ $ejercicio }}</strong> · Base: <code>copiasivso</code></p>
+    <p>Ejercicio de referencia: <strong>{{ $ejercicio }}</strong> · Base: <code>{{ $database_name }}</code></p>
     <table>
         <thead>
             <tr>

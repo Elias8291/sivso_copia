@@ -8,20 +8,28 @@ return new class extends Migration
 {
     protected $connection = 'copiasivso';
 
+    protected function createUnlessExists(string $connection, string $table, Closure $definition): void
+    {
+        if (Schema::connection($connection)->hasTable($table)) {
+            return;
+        }
+        Schema::connection($connection)->create($table, $definition);
+    }
+
     public function up(): void
     {
         $c = $this->connection;
 
         // ── Catálogos base ──────────────────────────────────
 
-        Schema::connection($c)->create('tipos_partida_especifica', function (Blueprint $table) {
+        $this->createUnlessExists($c, 'tipos_partida_especifica', function (Blueprint $table) {
             $table->id();
             $table->unsignedSmallInteger('codigo')->unique();
             $table->string('nombre', 120)->nullable();
             $table->timestamps();
         });
 
-        Schema::connection($c)->create('dependencias', function (Blueprint $table) {
+        $this->createUnlessExists($c, 'dependencias', function (Blueprint $table) {
             $table->id();
             $table->string('codigo', 12)->nullable()->index();
             $table->unsignedInteger('ur')->nullable()->unique();
@@ -30,7 +38,7 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        Schema::connection($c)->create('delegaciones', function (Blueprint $table) {
+        $this->createUnlessExists($c, 'delegaciones', function (Blueprint $table) {
             $table->id();
             $table->string('clave', 60)->unique();
             $table->string('nombre', 255)->nullable();
@@ -40,19 +48,19 @@ return new class extends Migration
 
         // ── Pivots N:M ─────────────────────────────────────
 
-        Schema::connection($c)->create('dependencia_delegacion', function (Blueprint $table) {
+        $this->createUnlessExists($c, 'dependencia_delegacion', function (Blueprint $table) {
             $table->foreignId('dependencia_id')->constrained('dependencias')->cascadeOnDelete();
             $table->foreignId('delegacion_id')->constrained('delegaciones')->cascadeOnDelete();
             $table->primary(['dependencia_id', 'delegacion_id']);
         });
 
-        Schema::connection($c)->create('delegados', function (Blueprint $table) {
+        $this->createUnlessExists($c, 'delegados', function (Blueprint $table) {
             $table->id();
             $table->string('nombre_completo', 255);
             $table->timestamps();
         });
 
-        Schema::connection($c)->create('delegado_delegacion', function (Blueprint $table) {
+        $this->createUnlessExists($c, 'delegado_delegacion', function (Blueprint $table) {
             $table->foreignId('delegado_id')->constrained('delegados')->cascadeOnDelete();
             $table->foreignId('delegacion_id')->constrained('delegaciones')->cascadeOnDelete();
             $table->primary(['delegado_id', 'delegacion_id']);
@@ -60,14 +68,14 @@ return new class extends Migration
 
         // ── Partidas ────────────────────────────────────────
 
-        Schema::connection($c)->create('partidas', function (Blueprint $table) {
+        $this->createUnlessExists($c, 'partidas', function (Blueprint $table) {
             $table->id();
             $table->unsignedInteger('no_partida')->unique();
             $table->text('descripcion')->nullable();
             $table->timestamps();
         });
 
-        Schema::connection($c)->create('partidas_por_ejercicio', function (Blueprint $table) {
+        $this->createUnlessExists($c, 'partidas_por_ejercicio', function (Blueprint $table) {
             $table->id();
             $table->foreignId('partida_id')->constrained('partidas')->cascadeOnDelete();
             $table->unsignedSmallInteger('anio');
@@ -80,7 +88,7 @@ return new class extends Migration
             $table->index(['anio', 'no_partida_snapshot']);
         });
 
-        Schema::connection($c)->create('partidas_especificas', function (Blueprint $table) {
+        $this->createUnlessExists($c, 'partidas_especificas', function (Blueprint $table) {
             $table->id();
             $table->foreignId('partida_id')->constrained('partidas')->cascadeOnDelete();
             $table->unsignedSmallInteger('anio');
@@ -94,7 +102,7 @@ return new class extends Migration
 
         // ── Productos ───────────────────────────────────────
 
-        Schema::connection($c)->create('productos', function (Blueprint $table) {
+        $this->createUnlessExists($c, 'productos', function (Blueprint $table) {
             $table->id();
             $table->foreignId('partida_id')->constrained('partidas')->cascadeOnDelete();
             $table->foreignId('tipo_partida_especifica_id')
@@ -111,7 +119,7 @@ return new class extends Migration
             $table->index(['partida_id', 'tipo_partida_especifica_id']);
         });
 
-        Schema::connection($c)->create('producto_precios', function (Blueprint $table) {
+        $this->createUnlessExists($c, 'producto_precios', function (Blueprint $table) {
             $table->id();
             $table->foreignId('producto_id')->constrained('productos')->cascadeOnDelete();
             $table->unsignedSmallInteger('anio');
@@ -125,7 +133,7 @@ return new class extends Migration
 
         // ── Presupuesto ─────────────────────────────────────
 
-        Schema::connection($c)->create('cupos_presupuesto', function (Blueprint $table) {
+        $this->createUnlessExists($c, 'cupos_presupuesto', function (Blueprint $table) {
             $table->id();
             $table->foreignId('dependencia_id')->constrained('dependencias')->cascadeOnDelete();
             $table->foreignId('partida_id')->constrained('partidas')->cascadeOnDelete();
@@ -142,7 +150,7 @@ return new class extends Migration
 
         // ── Empleados ───────────────────────────────────────
 
-        Schema::connection($c)->create('empleados', function (Blueprint $table) {
+        $this->createUnlessExists($c, 'empleados', function (Blueprint $table) {
             $table->id();
             $table->string('nue', 30)->nullable()->index();
             $table->string('nombre', 120)->nullable();
@@ -156,7 +164,7 @@ return new class extends Migration
 
         // ── Solicitudes (fact table) ────────────────────────
 
-        Schema::connection($c)->create('solicitudes_vestuario', function (Blueprint $table) {
+        $this->createUnlessExists($c, 'solicitudes_vestuario', function (Blueprint $table) {
             $table->id();
 
             // Relaciones principales

@@ -40,6 +40,7 @@ class DelegadosReporteController extends Controller
         return view('reportes.delegados.index', [
             'delegados' => $delegados,
             'ejercicio' => (int) config('sivso.ejercicio_actual', 2025),
+            'database_name' => $this->cx()->getDatabaseName(),
         ]);
     }
 
