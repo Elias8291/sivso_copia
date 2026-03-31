@@ -11,6 +11,7 @@
         "laravel/framework": "^13.0",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^3.0",
+        "openspout/openspout": "^4.28",
         "phpoffice/phpspreadsheet": "^4.0",
         "spatie/laravel-permission": "^7.2",
         "tightenco/ziggy": "^2.0"

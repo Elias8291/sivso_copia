@@ -126,14 +126,7 @@ final class CopiasivsoDatabaseCsvSnapshot
             throw new RuntimeException("No se pudo crear el directorio: {$absoluteDir}");
         }
 
-        $tables = self::listTables($connection);
-        $excludeSet = array_flip(array_merge(self::$defaultExclude, $excludeTables));
-        $tables = array_values(array_filter($tables, fn (string $t) => ! isset($excludeSet[$t])));
-
-        if ($onlyTables !== null) {
-            $want = array_flip($onlyTables);
-            $tables = array_values(array_filter($tables, fn (string $t) => isset($want[$t])));
-        }
+        $tables = self::listExportableTables($connection, $onlyTables, $excludeTables);
 
         $order = self::topologicalInsertOrder($connection, $tables);
 
@@ -157,9 +150,30 @@ final class CopiasivsoDatabaseCsvSnapshot
     }
 
     /**
+     * Tablas candidatas para exportar/importar snapshot (excluye sistema Laravel por defecto).
+     *
+     * @param  array<int, string>|null  $onlyTables
+     * @param  array<int, string>  $excludeTables
      * @return array<int, string>
      */
-    private static function primaryKeyOrderColumns(Connection $connection, string $table): array
+    public static function listExportableTables(Connection $connection, ?array $onlyTables = null, array $excludeTables = []): array
+    {
+        $tables = self::listTables($connection);
+        $excludeSet = array_flip(array_merge(self::$defaultExclude, $excludeTables));
+        $tables = array_values(array_filter($tables, fn (string $t) => ! isset($excludeSet[$t])));
+
+        if ($onlyTables !== null) {
+            $want = array_flip($onlyTables);
+            $tables = array_values(array_filter($tables, fn (string $t) => isset($want[$t])));
+        }
+
+        return $tables;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function primaryKeyOrderColumns(Connection $connection, string $table): array
     {
         $database = $connection->getDatabaseName();
         if ($database === '' || $database === null) {

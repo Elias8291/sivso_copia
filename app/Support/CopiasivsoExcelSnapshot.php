@@ -7,6 +7,8 @@ use PhpOffice\PhpSpreadsheet\Cell\Cell;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Reader\Xlsx;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
+use OpenSpout\Common\Entity\Row as OpenSpoutRow;
+use OpenSpout\Writer\XLSX\Writer as OpenSpoutXlsxWriter;
 use PhpOffice\PhpSpreadsheet\Worksheet\Row;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use RuntimeException;
@@ -226,5 +228,119 @@ final class CopiasivsoExcelSnapshot
         $connection->statement('SET FOREIGN_KEY_CHECKS=1');
 
         return ['truncated' => $truncated, 'inserted' => $inserted];
+    }
+
+    /**
+     * Exporta una tabla a {tabla}.xlsx (fila 1 = nombres de columna, misma convención que importFromExcelFile).
+     */
+    public static function exportTable(Connection $connection, string $table, string $dir, int $chunkSize = 2000): void
+    {
+        self::assertPackagePresent();
+        if (! class_exists(OpenSpoutXlsxWriter::class)) {
+            throw new RuntimeException(
+                'Falta openspout/openspout (exportación XLSX en streaming). Ejecuta: composer require openspout/openspout'
+            );
+        }
+
+        $path = $dir.DIRECTORY_SEPARATOR.$table.'.xlsx';
+        $schema = $connection->getSchemaBuilder();
+        $columns = $schema->getColumnListing($table);
+        if ($columns === []) {
+            if (is_file($path)) {
+                unlink($path);
+            }
+
+            return;
+        }
+
+        $writer = new OpenSpoutXlsxWriter;
+        $writer->openToFile($path);
+        $writer->addRow(OpenSpoutRow::fromValues($columns));
+
+        $pk = CopiasivsoDatabaseCsvSnapshot::primaryKeyOrderColumns($connection, $table);
+        $offset = 0;
+
+        do {
+            $q = $connection->table($table);
+            $ordered = false;
+            if ($pk !== []) {
+                foreach ($pk as $col) {
+                    if (in_array($col, $columns, true)) {
+                        $q->orderBy($col);
+                        $ordered = true;
+                    }
+                }
+            }
+            if (! $ordered) {
+                if ($schema->hasColumn($table, 'id')) {
+                    $q->orderBy('id');
+                } else {
+                    $q->orderBy($columns[0]);
+                }
+            }
+            $rows = $q->offset($offset)->limit($chunkSize)->get();
+
+            foreach ($rows as $row) {
+                $arr = (array) $row;
+                $values = [];
+                foreach ($columns as $col) {
+                    $v = $arr[$col] ?? null;
+                    if ($v instanceof \DateTimeInterface) {
+                        $v = $v->format('Y-m-d H:i:s');
+                    } elseif (is_bool($v)) {
+                        $v = $v ? 1 : 0;
+                    }
+                    $values[] = $v;
+                }
+                $writer->addRow(OpenSpoutRow::fromValues($values));
+            }
+
+            $offset += $chunkSize;
+        } while ($rows->count() === $chunkSize);
+
+        $writer->close();
+    }
+
+    /**
+     * Exporta tablas a .xlsx + _manifest.json (insert_order por FK). Misma selección de tablas que el export CSV.
+     *
+     * @param  array<int, string>|null  $onlyTables
+     * @param  array<int, string>  $excludeTables
+     * @return array{dir: string, tables: array<int, string>, order: array<int, string>}
+     */
+    public static function export(
+        Connection $connection,
+        string $absoluteDir,
+        ?array $onlyTables = null,
+        array $excludeTables = [],
+        int $chunkSize = 2000
+    ): array {
+        self::assertPackagePresent();
+        if (! is_dir($absoluteDir) && ! mkdir($absoluteDir, 0755, true) && ! is_dir($absoluteDir)) {
+            throw new RuntimeException("No se pudo crear el directorio: {$absoluteDir}");
+        }
+
+        $tables = CopiasivsoDatabaseCsvSnapshot::listExportableTables($connection, $onlyTables, $excludeTables);
+        $order = CopiasivsoDatabaseCsvSnapshot::topologicalInsertOrder($connection, $tables);
+
+        foreach ($tables as $table) {
+            self::exportTable($connection, $table, $absoluteDir, $chunkSize);
+        }
+
+        $manifest = [
+            'connection' => $connection->getName(),
+            'database' => $connection->getDatabaseName(),
+            'exported_at' => now()->toIso8601String(),
+            'format' => 'xlsx',
+            'tables' => $tables,
+            'insert_order' => $order,
+            'note' => 'Cargar en destino: php artisan db:seed --class=CopiasivsoExcelDirectorySeeder',
+        ];
+        file_put_contents(
+            $absoluteDir.DIRECTORY_SEPARATOR.'_manifest.json',
+            json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)."\n"
+        );
+
+        return ['dir' => $absoluteDir, 'tables' => $tables, 'order' => $order];
     }
 }

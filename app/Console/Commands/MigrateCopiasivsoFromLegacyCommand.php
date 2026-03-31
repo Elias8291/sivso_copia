@@ -26,11 +26,24 @@ class MigrateCopiasivsoFromLegacyCommand extends Command
         $tgt = DB::connection($target);
 
         if (! $src->getSchemaBuilder()->hasTable('concentrado')) {
-            $this->error("La conexión origen «{$source}» no tiene tabla «concentrado».");
-            $this->line('  Origen (legacy): <fg=yellow>'.(string) $src->getDatabaseName().'</>');
-            $this->line('  Destino (normalizado): <fg=yellow>'.(string) $tgt->getDatabaseName().'</>');
-            $this->line('  En .env define <fg=cyan>SIVSO_LEGACY_SOURCE_DATABASE=copiasivso</> si los datos viejos están en otra base que <fg=cyan>DB_DATABASE</>.');
-            $this->line('  Luego: <fg=cyan>php artisan config:clear</>');
+            $srcDb = (string) $src->getDatabaseName();
+            $tgtDb = (string) $tgt->getDatabaseName();
+            $this->error("No existe la tabla «concentrado» en la base que usa el origen legacy (conexión «{$source}»). Sin ella no se pueden leer empleados ni solicitudes.");
+            $this->line('  Origen (sivso_legacy_source → DB): <fg=yellow>'.$srcDb.'</>');
+            $this->line('  Destino (copiasivso → DB_DATABASE): <fg=yellow>'.$tgtDb.'</>');
+
+            if ($srcDb === $tgtDb) {
+                $this->newLine();
+                $this->line('  <fg=white>Misma base para origen y destino:</> en «'.$srcDb.'» no hay tabla legacy «concentrado».');
+                $this->line('  • Si el SIVSO viejo está en <fg=cyan>otra</> base MySQL del mismo servidor, pon en .env el nombre real, por ejemplo:');
+                $this->line('    <fg=cyan>SIVSO_LEGACY_SOURCE_DATABASE=nombre_de_la_base_con_concentrado</>');
+                $this->line('  • Si solo tienes esta base, importa ahí las tablas legacy (concentrado, propuesta, dependences, delegacion, delegado) desde un dump,');
+                $this->line('    o migra desde CSV con <fg=cyan>php artisan db:seed</> si no usarás el comando legacy.');
+            } else {
+                $this->newLine();
+                $this->line('  Revisa que <fg=cyan>SIVSO_LEGACY_SOURCE_DATABASE</> apunte a la base donde exista «concentrado» (nombre exacto en MySQL).');
+            }
+            $this->line('  Tras cambiar .env: <fg=cyan>php artisan config:clear</>');
 
             return self::FAILURE;
         }

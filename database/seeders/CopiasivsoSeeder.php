@@ -6,9 +6,11 @@ use App\Support\CopiasivsoExcelSnapshot;
 use Illuminate\Database\Seeder;
 
 /**
- * Ruta legada: datos desde .xlsx. El flujo principal es CSV: CopiasivsoCsvSeeder (un seeder por tabla).
+ * Carga tabla por tabla desde .xlsx (cada seeder hace TRUNCATE + insert de un solo archivo).
+ * El flujo recomendado para migrar una base completa es exportar con `sivso:export-database-xlsx`
+ * e importar con CopiasivsoExcelDirectorySeeder (respeta _manifest.json y FK).
  *
- * Ejemplo de una tabla: php artisan db:seed --class=Database\\Seeders\\DelegacionesSeeder
+ * Ejemplo manual: php artisan db:seed --class=Database\\Seeders\\DelegacionesSeeder
  */
 class CopiasivsoSeeder extends Seeder
 {
