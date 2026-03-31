@@ -3,13 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use Spatie\Permission\Models\Role;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
 {
@@ -61,8 +61,10 @@ class UserController extends Controller
             'must_change_password' => 0,
         ]);
 
-        if (isset($validated['roles'])) {
+        if (! empty($validated['roles'])) {
             $user->syncRoles($validated['roles']);
+        } else {
+            $user->assignRole('consulta');
         }
 
         return redirect()->route('users.index')->with('success', 'Usuario creado exitosamente.');
@@ -80,7 +82,7 @@ class UserController extends Controller
                 'activo' => (bool) $user->activo,
                 'roles' => $user->roles->pluck('name'),
                 'created_at' => $user->created_at,
-            ]
+            ],
         ]);
     }
 
@@ -119,6 +121,7 @@ class UserController extends Controller
     public function destroy(User $user): RedirectResponse
     {
         $user->delete();
+
         return redirect()->route('users.index')->with('success', 'Usuario eliminado exitosamente.');
     }
 }

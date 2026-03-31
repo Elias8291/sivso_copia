@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { 
     ChevronLeft, ChevronRight, LayoutDashboard, LogOut, User, Users, 
     MapPin, ShieldCheck, Building2, Users2, Package, ListTree, Calendar, Key, FileText
@@ -10,6 +10,11 @@ export default function Sidebar({
     collapsed,
     onToggleCollapse,
 }) {
+    const { auth } = usePage().props;
+    const permissions = Array.isArray(auth?.permissions) ? auth.permissions : [];
+    const can = (name) => permissions.includes(name);
+    const displayName = auth?.user?.name || 'Usuario';
+
     const navLink = (active) =>
         [
             'group flex items-center gap-3 rounded-lg py-2 px-3 text-[12px] font-bold tracking-wide transition-colors duration-200',
@@ -103,78 +108,120 @@ export default function Sidebar({
                             <span className={collapsed ? 'lg:hidden' : ''}>Dashboard</span>
                         </Link>
 
-                        <Link href={route('my-delegation.index')} onClick={handleNav} className={navLink(route().current('my-delegation.*'))} title="Mi Delegación">
-                            <MapPin className={iconClass(route().current('my-delegation.*'))} strokeWidth={2} aria-hidden />
-                            <span className={collapsed ? 'lg:hidden' : ''}>Mi Delegación</span>
-                        </Link>
+                        {can('delegation.self') && (
+                            <Link href={route('my-delegation.index')} onClick={handleNav} className={navLink(route().current('my-delegation.*'))} title="Mi Delegación">
+                                <MapPin className={iconClass(route().current('my-delegation.*'))} strokeWidth={2} aria-hidden />
+                                <span className={collapsed ? 'lg:hidden' : ''}>Mi Delegación</span>
+                            </Link>
+                        )}
                         <Link href={route('profile.edit')} onClick={handleNav} className={navLink(route().current('profile.edit'))} title="Mi Cuenta">
                             <User className={iconClass(route().current('profile.edit'))} strokeWidth={2} aria-hidden />
                             <span className={collapsed ? 'lg:hidden' : ''}>Mi Cuenta</span>
                         </Link>
                     </nav>
 
-                    <SectionHeader title="Vestuario" />
-                    <nav className="flex flex-col gap-0.5">
-                        <Link href={route('empleados.index')} onClick={handleNav} className={navLink(route().current('empleados.*'))} title="Empleados">
-                            <Users2 className={iconClass(route().current('empleados.*'))} strokeWidth={2} aria-hidden />
-                            <span className={collapsed ? 'lg:hidden' : ''}>Empleados</span>
-                        </Link>
-                        <Link href={route('productos.index')} onClick={handleNav} className={navLink(route().current('productos.*'))} title="Productos">
-                            <Package className={iconClass(route().current('productos.*'))} strokeWidth={2} aria-hidden />
-                            <span className={collapsed ? 'lg:hidden' : ''}>Productos</span>
-                        </Link>
-                        <Link href={route('partidas.index')} onClick={handleNav} className={navLink(route().current('partidas.*'))} title="Partidas">
-                            <ListTree className={iconClass(route().current('partidas.*'))} strokeWidth={2} aria-hidden />
-                            <span className={collapsed ? 'lg:hidden' : ''}>Partidas</span>
-                        </Link>
-                        <Link href={route('partidas-especificas.index')} onClick={handleNav} className={navLink(route().current('partidas-especificas.*'))} title="Líneas Presupuestales">
-                            <FileText className={iconClass(route().current('partidas-especificas.*'))} strokeWidth={2} aria-hidden />
-                            <span className={collapsed ? 'lg:hidden' : ''}>Líneas Presupuestales</span>
-                        </Link>
-                    </nav>
+                    {(can('empleados.view') ||
+                        can('productos.view') ||
+                        can('partidas.view') ||
+                        can('partidas-especificas.view')) && (
+                        <>
+                            <SectionHeader title="Vestuario" />
+                            <nav className="flex flex-col gap-0.5">
+                                {can('empleados.view') && (
+                                    <Link href={route('empleados.index')} onClick={handleNav} className={navLink(route().current('empleados.*'))} title="Empleados">
+                                        <Users2 className={iconClass(route().current('empleados.*'))} strokeWidth={2} aria-hidden />
+                                        <span className={collapsed ? 'lg:hidden' : ''}>Empleados</span>
+                                    </Link>
+                                )}
+                                {can('productos.view') && (
+                                    <Link href={route('productos.index')} onClick={handleNav} className={navLink(route().current('productos.*'))} title="Productos">
+                                        <Package className={iconClass(route().current('productos.*'))} strokeWidth={2} aria-hidden />
+                                        <span className={collapsed ? 'lg:hidden' : ''}>Productos</span>
+                                    </Link>
+                                )}
+                                {can('partidas.view') && (
+                                    <Link href={route('partidas.index')} onClick={handleNav} className={navLink(route().current('partidas.*'))} title="Partidas">
+                                        <ListTree className={iconClass(route().current('partidas.*'))} strokeWidth={2} aria-hidden />
+                                        <span className={collapsed ? 'lg:hidden' : ''}>Partidas</span>
+                                    </Link>
+                                )}
+                                {can('partidas-especificas.view') && (
+                                    <Link href={route('partidas-especificas.index')} onClick={handleNav} className={navLink(route().current('partidas-especificas.*'))} title="Líneas Presupuestales">
+                                        <FileText className={iconClass(route().current('partidas-especificas.*'))} strokeWidth={2} aria-hidden />
+                                        <span className={collapsed ? 'lg:hidden' : ''}>Líneas Presupuestales</span>
+                                    </Link>
+                                )}
+                            </nav>
+                        </>
+                    )}
 
-                    <SectionHeader title="Estructura" />
-                    <nav className="flex flex-col gap-0.5">
-                        <Link href={route('dependencias.index')} onClick={handleNav} className={navLink(route().current('dependencias.*'))} title="Dependencias">
-                            <Building2 className={iconClass(route().current('dependencias.*'))} strokeWidth={2} aria-hidden />
-                            <span className={collapsed ? 'lg:hidden' : ''}>Dependencias</span>
-                        </Link>
-                        <Link href={route('delegaciones.index')} onClick={handleNav} className={navLink(route().current('delegaciones.*'))} title="Delegaciones">
-                            <MapPin className={iconClass(route().current('delegaciones.*'))} strokeWidth={2} aria-hidden />
-                            <span className={collapsed ? 'lg:hidden' : ''}>Delegaciones</span>
-                        </Link>
-                        <Link href={route('delegados.index')} onClick={handleNav} className={navLink(route().current('delegados.*'))} title="Delegados">
-                            <User className={iconClass(route().current('delegados.*'))} strokeWidth={2} aria-hidden />
-                            <span className={collapsed ? 'lg:hidden' : ''}>Delegados</span>
-                        </Link>
-                    </nav>
+                    {(can('dependencias.view') || can('delegaciones.view') || can('delegados.view')) && (
+                        <>
+                            <SectionHeader title="Estructura" />
+                            <nav className="flex flex-col gap-0.5">
+                                {can('dependencias.view') && (
+                                    <Link href={route('dependencias.index')} onClick={handleNav} className={navLink(route().current('dependencias.*'))} title="Dependencias">
+                                        <Building2 className={iconClass(route().current('dependencias.*'))} strokeWidth={2} aria-hidden />
+                                        <span className={collapsed ? 'lg:hidden' : ''}>Dependencias</span>
+                                    </Link>
+                                )}
+                                {can('delegaciones.view') && (
+                                    <Link href={route('delegaciones.index')} onClick={handleNav} className={navLink(route().current('delegaciones.*'))} title="Delegaciones">
+                                        <MapPin className={iconClass(route().current('delegaciones.*'))} strokeWidth={2} aria-hidden />
+                                        <span className={collapsed ? 'lg:hidden' : ''}>Delegaciones</span>
+                                    </Link>
+                                )}
+                                {can('delegados.view') && (
+                                    <Link href={route('delegados.index')} onClick={handleNav} className={navLink(route().current('delegados.*'))} title="Delegados">
+                                        <User className={iconClass(route().current('delegados.*'))} strokeWidth={2} aria-hidden />
+                                        <span className={collapsed ? 'lg:hidden' : ''}>Delegados</span>
+                                    </Link>
+                                )}
+                            </nav>
+                        </>
+                    )}
 
-                    <SectionHeader title="Administración" />
-                    <nav className="flex flex-col gap-0.5">
-                        <Link href={route('periodos.index')} onClick={handleNav} className={navLink(route().current('periodos.*'))} title="Periodos">
-                            <Calendar className={iconClass(route().current('periodos.*'))} strokeWidth={2} aria-hidden />
-                            <span className={collapsed ? 'lg:hidden' : ''}>Periodos</span>
-                        </Link>
-                        <Link href={route('users.index')} onClick={handleNav} className={navLink(route().current('users.index'))} title="Usuarios">
-                            <Users className={iconClass(route().current('users.index'))} strokeWidth={2} aria-hidden />
-                            <span className={collapsed ? 'lg:hidden' : ''}>Usuarios</span>
-                        </Link>
-                        <Link href={route('roles.index')} onClick={handleNav} className={navLink(route().current('roles.*'))} title="Roles">
-                            <ShieldCheck className={iconClass(route().current('roles.*'))} strokeWidth={2} aria-hidden />
-                            <span className={collapsed ? 'lg:hidden' : ''}>Roles</span>
-                        </Link>
-                        <Link href={route('permissions.index')} onClick={handleNav} className={navLink(route().current('permissions.*'))} title="Permisos">
-                            <Key className={iconClass(route().current('permissions.*'))} strokeWidth={2} aria-hidden />
-                            <span className={collapsed ? 'lg:hidden' : ''}>Permisos</span>
-                        </Link>
-                    </nav>
+                    {(can('periodos.view') ||
+                        can('users.view') ||
+                        can('roles.view') ||
+                        can('permissions.view')) && (
+                        <>
+                            <SectionHeader title="Administración" />
+                            <nav className="flex flex-col gap-0.5">
+                                {can('periodos.view') && (
+                                    <Link href={route('periodos.index')} onClick={handleNav} className={navLink(route().current('periodos.*'))} title="Periodos">
+                                        <Calendar className={iconClass(route().current('periodos.*'))} strokeWidth={2} aria-hidden />
+                                        <span className={collapsed ? 'lg:hidden' : ''}>Periodos</span>
+                                    </Link>
+                                )}
+                                {can('users.view') && (
+                                    <Link href={route('users.index')} onClick={handleNav} className={navLink(route().current('users.index'))} title="Usuarios">
+                                        <Users className={iconClass(route().current('users.index'))} strokeWidth={2} aria-hidden />
+                                        <span className={collapsed ? 'lg:hidden' : ''}>Usuarios</span>
+                                    </Link>
+                                )}
+                                {can('roles.view') && (
+                                    <Link href={route('roles.index')} onClick={handleNav} className={navLink(route().current('roles.*'))} title="Roles">
+                                        <ShieldCheck className={iconClass(route().current('roles.*'))} strokeWidth={2} aria-hidden />
+                                        <span className={collapsed ? 'lg:hidden' : ''}>Roles</span>
+                                    </Link>
+                                )}
+                                {can('permissions.view') && (
+                                    <Link href={route('permissions.index')} onClick={handleNav} className={navLink(route().current('permissions.*'))} title="Permisos">
+                                        <Key className={iconClass(route().current('permissions.*'))} strokeWidth={2} aria-hidden />
+                                        <span className={collapsed ? 'lg:hidden' : ''}>Permisos</span>
+                                    </Link>
+                                )}
+                            </nav>
+                        </>
+                    )}
                 </div>
 
                 <div className="border-t border-zinc-200/60 p-4 dark:border-zinc-800/60">
                     {!collapsed && (
                         <div className="mb-4 px-2">
                             <p className="truncate text-[11px] font-bold text-zinc-800 dark:text-zinc-200">
-                                Elias Abisai Ramos Jacinto
+                                {displayName}
                             </p>
                         </div>
                     )}

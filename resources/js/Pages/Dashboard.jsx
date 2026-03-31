@@ -50,7 +50,10 @@ function StatCard({ label, value, icon: Icon, color = 'text-zinc-600 dark:text-z
 }
 
 export default function Dashboard({ stats = {}, ejercicio = 2025 }) {
-    const user = usePage().props.auth?.user;
+    const { auth } = usePage().props;
+    const user = auth?.user;
+    const permissions = Array.isArray(auth?.permissions) ? auth.permissions : [];
+    const can = (name) => permissions.includes(name);
     const firstName = (user?.name || '').split(/\s+/)[0] || 'Usuario';
 
     const dateLabel = new Date().toLocaleDateString('es-MX', {
@@ -71,6 +74,7 @@ export default function Dashboard({ stats = {}, ejercicio = 2025 }) {
             icon: User,
         },
         {
+            permission: 'empleados.view',
             href: route('empleados.index'),
             routePattern: 'empleados.*',
             title: 'Empleados',
@@ -78,6 +82,7 @@ export default function Dashboard({ stats = {}, ejercicio = 2025 }) {
             icon: Users2,
         },
         {
+            permission: 'periodos.view',
             href: route('periodos.index'),
             routePattern: 'periodos.*',
             title: 'Periodos',
@@ -85,6 +90,7 @@ export default function Dashboard({ stats = {}, ejercicio = 2025 }) {
             icon: Calendar,
         },
         {
+            permission: 'dependencias.view',
             href: route('dependencias.index'),
             routePattern: 'dependencias.*',
             title: 'Dependencias',
@@ -92,13 +98,14 @@ export default function Dashboard({ stats = {}, ejercicio = 2025 }) {
             icon: Building2,
         },
         {
+            permission: 'users.view',
             href: route('users.index'),
             routePattern: 'users.*',
             title: 'Usuarios',
             description: 'Accesos, roles y permisos.',
             icon: Users,
         },
-    ];
+    ].filter((item) => !item.permission || can(item.permission));
 
     return (
         <AuthenticatedLayout
@@ -135,33 +142,35 @@ export default function Dashboard({ stats = {}, ejercicio = 2025 }) {
                     </div>
                 </header>
 
-                <section className="mb-8" aria-labelledby="dash-featured">
-                    <h2 id="dash-featured" className="sr-only">
-                        Acceso destacado
-                    </h2>
-                    <Link
-                        href={route('my-delegation.index')}
-                        className={`group flex flex-col gap-4 rounded-2xl border border-brand-gold/35 bg-gradient-to-br from-brand-gold/[0.09] via-white/90 to-white/90 p-6 shadow-sm shadow-brand-gold/10 transition-all hover:border-brand-gold/55 hover:shadow-md dark:from-brand-gold/10 dark:via-zinc-900/50 dark:to-zinc-900/40 dark:shadow-none sm:flex-row sm:items-center sm:justify-between sm:p-7 ${
-                            onDelegation ? 'ring-1 ring-brand-gold/40 dark:ring-brand-gold/30' : ''
-                        }`}
-                    >
-                        <div className="flex min-w-0 items-start gap-4 sm:items-center">
-                            <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-brand-gold/15 text-brand-gold dark:bg-brand-gold/20 dark:text-brand-gold-soft">
-                                <MapPin className="size-7" strokeWidth={2} aria-hidden />
+                {can('delegation.self') && (
+                    <section className="mb-8" aria-labelledby="dash-featured">
+                        <h2 id="dash-featured" className="sr-only">
+                            Acceso destacado
+                        </h2>
+                        <Link
+                            href={route('my-delegation.index')}
+                            className={`group flex flex-col gap-4 rounded-2xl border border-brand-gold/35 bg-gradient-to-br from-brand-gold/[0.09] via-white/90 to-white/90 p-6 shadow-sm shadow-brand-gold/10 transition-all hover:border-brand-gold/55 hover:shadow-md dark:from-brand-gold/10 dark:via-zinc-900/50 dark:to-zinc-900/40 dark:shadow-none sm:flex-row sm:items-center sm:justify-between sm:p-7 ${
+                                onDelegation ? 'ring-1 ring-brand-gold/40 dark:ring-brand-gold/30' : ''
+                            }`}
+                        >
+                            <div className="flex min-w-0 items-start gap-4 sm:items-center">
+                                <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-brand-gold/15 text-brand-gold dark:bg-brand-gold/20 dark:text-brand-gold-soft">
+                                    <MapPin className="size-7" strokeWidth={2} aria-hidden />
+                                </div>
+                                <div className="min-w-0">
+                                    <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Mi delegación</h3>
+                                    <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                                        Actualiza tallas, revisa el estado del vestuario y gestiona bajas desde un solo lugar.
+                                    </p>
+                                </div>
                             </div>
-                            <div className="min-w-0">
-                                <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Mi delegación</h3>
-                                <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                                    Actualiza tallas, revisa el estado del vestuario y gestiona bajas desde un solo lugar.
-                                </p>
-                            </div>
-                        </div>
-                        <span className="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-xl border border-brand-gold/40 bg-white/60 px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-brand-gold transition-colors group-hover:bg-brand-gold group-hover:text-white dark:border-brand-gold/35 dark:bg-zinc-950/40 dark:text-brand-gold-soft dark:group-hover:bg-brand-gold dark:group-hover:text-zinc-900 sm:self-center">
-                            Ir ahora
-                            <ChevronRight className="size-4 transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
-                        </span>
-                    </Link>
-                </section>
+                            <span className="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-xl border border-brand-gold/40 bg-white/60 px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-brand-gold transition-colors group-hover:bg-brand-gold group-hover:text-white dark:border-brand-gold/35 dark:bg-zinc-950/40 dark:text-brand-gold-soft dark:group-hover:bg-brand-gold dark:group-hover:text-zinc-900 sm:self-center">
+                                Ir ahora
+                                <ChevronRight className="size-4 transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
+                            </span>
+                        </Link>
+                    </section>
+                )}
 
                 {stats && (
                     <section aria-labelledby="dash-stats" className="mb-8">
