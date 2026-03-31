@@ -1,1 +1,0 @@
-import{t as e}from"./BajaModal-Kr79wvxo.js";export{e as default};

@@ -1,7 +1,7 @@
 {
     "connection": "copiasivso",
     "database": "copiando_sivsooo",
-    "exported_at": "2026-03-31T13:32:50+00:00",
+    "exported_at": "2026-03-31T19:27:18+00:00",
     "tables": [
         "concentrado",
         "cupos_presupuesto",

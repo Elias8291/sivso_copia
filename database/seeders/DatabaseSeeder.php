@@ -24,7 +24,13 @@ class DatabaseSeeder extends Seeder
             SivsoRbacSeeder::class,
         ]);
 
+        $exportEmpleadosCsv = filter_var(env('SIVSO_EXPORT_EMPLEADOS_CSV', false), FILTER_VALIDATE_BOOLEAN);
+
         if (filter_var(env('SIVSO_SKIP_DATA_SEED', false), FILTER_VALIDATE_BOOLEAN)) {
+            if ($exportEmpleadosCsv) {
+                $this->call(ExportEmpleadosCsvSeeder::class);
+            }
+
             return;
         }
 
@@ -38,10 +44,19 @@ class DatabaseSeeder extends Seeder
 
         if (is_readable($csvManifest) && $csvFiles !== []) {
             $this->call(CopiasivsoFromCsvSeeder::class);
+            $this->call(EmpleadosReconcileDelegacionSeeder::class);
         }
 
         if (is_readable($xlsxManifest) && $xlsxFiles !== []) {
             $this->call(CopiasivsoSeeder::class);
+        }
+
+        if ($exportEmpleadosCsv) {
+            $this->call(ExportEmpleadosCsvSeeder::class);
+        }
+
+        if (filter_var(env('SIVSO_SYNC_EMPLEADOS_CSV_SNAPSHOT', false), FILTER_VALIDATE_BOOLEAN)) {
+            $this->call(SyncEmpleadosCsvToSnapshotSeeder::class);
         }
     }
 }

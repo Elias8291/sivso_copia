@@ -135,25 +135,25 @@ return [
             ]) : [],
         ],
 
-        // Nombre lógico "copiasivso": en producción suele ser la misma BD que DB_* (Hostinger).
-        // Solo define COPIASIVSO_DB_* si quieres una base distinta en local.
+        /*
+         * Misma base y credenciales que «mysql» (solo DB_*). Nombre lógico para modelos/migraciones SIVSO.
+         */
         'copiasivso' => [
             'driver' => 'mysql',
-            'url' => env('COPIASIVSO_DB_URL'),
-            'host' => env('COPIASIVSO_DB_HOST', env('DB_HOST', '127.0.0.1')),
-            'port' => env('COPIASIVSO_DB_PORT', env('DB_PORT', '3306')),
-            'database' => env('COPIASIVSO_DB_DATABASE', env('DB_DATABASE', 'laravel')),
-            'username' => env('COPIASIVSO_DB_USERNAME', env('DB_USERNAME', 'root')),
-            'password' => env('COPIASIVSO_DB_PASSWORD', env('DB_PASSWORD', '')),
-            'unix_socket' => env('COPIASIVSO_DB_SOCKET', env('DB_SOCKET', '')),
-            'charset' => env('COPIASIVSO_DB_CHARSET', env('DB_CHARSET', 'utf8mb4')),
-            'collation' => env('COPIASIVSO_DB_COLLATION', env('DB_COLLATION', 'utf8mb4_unicode_ci')),
+            'url' => env('DB_URL'),
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'port' => env('DB_PORT', '3306'),
+            'database' => env('DB_DATABASE', 'laravel'),
+            'username' => env('DB_USERNAME', 'root'),
+            'password' => env('DB_PASSWORD', ''),
+            'unix_socket' => env('DB_SOCKET', ''),
+            'charset' => env('DB_CHARSET', 'utf8mb4'),
+            'collation' => env('DB_COLLATION', 'utf8mb4_unicode_ci'),
             'prefix' => '',
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
-                (PHP_VERSION_ID >= 80500 ? Mysql::ATTR_INIT_COMMAND : PDO::MYSQL_ATTR_INIT_COMMAND) => 'SET NAMES '.(string) env('COPIASIVSO_DB_CHARSET', env('DB_CHARSET', 'utf8mb4')).' COLLATE '.(string) env('COPIASIVSO_DB_COLLATION', env('DB_COLLATION', 'utf8mb4_unicode_ci')),
                 (PHP_VERSION_ID >= 80500 ? Mysql::ATTR_SSL_CA : PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
         ],

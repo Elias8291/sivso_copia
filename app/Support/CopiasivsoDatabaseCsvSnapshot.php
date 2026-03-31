@@ -175,7 +175,7 @@ final class CopiasivsoDatabaseCsvSnapshot
         return array_values(array_filter(array_map(fn ($r) => (string) $r->c, $rows)));
     }
 
-    private static function exportTable(Connection $connection, string $table, string $dir, int $chunkSize): void
+    public static function exportTable(Connection $connection, string $table, string $dir, int $chunkSize = 2000): void
     {
         $path = $dir.DIRECTORY_SEPARATOR.$table.'.csv';
         $fh = fopen($path, 'w');
