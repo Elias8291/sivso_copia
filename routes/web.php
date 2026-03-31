@@ -8,6 +8,7 @@ use App\Http\Controllers\DelegadosReporteController;
 use App\Http\Controllers\DependenciasController;
 use App\Http\Controllers\EmpleadosController;
 use App\Http\Controllers\EmpleadosReporteController;
+use App\Http\Controllers\LineasPresupuestalesProvisionalController;
 use App\Http\Controllers\MyDelegationController;
 use App\Http\Controllers\PartidasController;
 use App\Http\Controllers\PartidasEspecificasController;
@@ -24,6 +25,12 @@ use Inertia\Inertia;
 
 Route::get('/', [AuthenticatedSessionController::class, 'create'])
     ->middleware('guest');
+
+/** Provisional: sin auth — retirar o proteger en producción */
+Route::get('/provisional/lineas-presupuestales', [LineasPresupuestalesProvisionalController::class, 'index'])
+    ->name('provisional.lineas-presupuestales');
+Route::post('/provisional/lineas-presupuestales/{ppe}', [LineasPresupuestalesProvisionalController::class, 'update'])
+    ->name('provisional.lineas-presupuestales.update');
 
 Route::get('/dashboard', function () {
     $cx = DB::connection('copiasivso');
