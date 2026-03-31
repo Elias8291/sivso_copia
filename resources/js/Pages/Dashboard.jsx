@@ -52,8 +52,9 @@ function StatCard({ label, value, icon: Icon, color = 'text-zinc-600 dark:text-z
 export default function Dashboard({ stats = {}, ejercicio = 2025 }) {
     const { auth } = usePage().props;
     const user = auth?.user;
+    const isSuperAdmin = Boolean(auth?.is_super_admin);
     const permissions = Array.isArray(auth?.permissions) ? auth.permissions : [];
-    const can = (name) => permissions.includes(name);
+    const can = (name) => isSuperAdmin || permissions.includes(name);
     const firstName = (user?.name || '').split(/\s+/)[0] || 'Usuario';
 
     const dateLabel = new Date().toLocaleDateString('es-MX', {

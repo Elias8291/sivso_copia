@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\SivsoRbac;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -33,6 +34,7 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'auth' => [
                 'user' => $request->user(),
+                'is_super_admin' => SivsoRbac::userIsSuperAdmin($request->user()),
                 'permissions' => $request->user()
                     ? $request->user()->getAllPermissions()->pluck('name')->values()->all()
                     : [],

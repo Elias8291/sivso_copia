@@ -13,7 +13,7 @@ use Spatie\Permission\PermissionRegistrar;
  * Crea permisos y roles del SIVSO en la BD por defecto (tablas Spatie).
  *
  * Roles:
- * - super-admin: todos los permisos
+ * - super-admin: sin permisos en BD; pasa todo vía Gate::before (ver AppServiceProvider)
  * - administrador: todo excepto gestión de roles y permisos
  * - gestor-catalogo: catálogo vestuario, estructura (solo lectura salvo delegados), reportes, periodos solo ver
  * - consulta: solo lectura en módulos operativos + reportes
@@ -32,7 +32,7 @@ class SivsoRbacSeeder extends Seeder
         }
 
         $super = Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
-        $super->syncPermissions(SivsoPermissions::all());
+        $super->syncPermissions([]);
 
         $admin = Role::firstOrCreate(['name' => 'administrador', 'guard_name' => 'web']);
         $admin->syncPermissions(SivsoPermissions::administrador());

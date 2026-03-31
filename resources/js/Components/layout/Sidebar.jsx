@@ -11,8 +11,9 @@ export default function Sidebar({
     onToggleCollapse,
 }) {
     const { auth } = usePage().props;
+    const isSuperAdmin = Boolean(auth?.is_super_admin);
     const permissions = Array.isArray(auth?.permissions) ? auth.permissions : [];
-    const can = (name) => permissions.includes(name);
+    const can = (name) => isSuperAdmin || permissions.includes(name);
     const displayName = auth?.user?.name || 'Usuario';
 
     const navLink = (active) =>
