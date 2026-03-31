@@ -73,6 +73,7 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
     Route::delete('/partidas/{id}', [PartidasController::class, 'destroy'])->name('partidas.destroy');
 
     Route::get('/partidas-especificas', [PartidasEspecificasController::class, 'index'])->name('partidas-especificas.index');
+    Route::get('/partidas-especificas/export', [PartidasEspecificasController::class, 'exportCsv'])->name('partidas-especificas.export');
     Route::post('/partidas-especificas', [PartidasEspecificasController::class, 'store'])->name('partidas-especificas.store');
     Route::put('/partidas-especificas/{id}', [PartidasEspecificasController::class, 'update'])->name('partidas-especificas.update');
     Route::delete('/partidas-especificas/{id}', [PartidasEspecificasController::class, 'destroy'])->name('partidas-especificas.destroy');

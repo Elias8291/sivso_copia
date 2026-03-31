@@ -4,10 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\PartidaEspecifica;
 use Illuminate\Database\Connection;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
-use Inertia\Response;
+use Inertia\Response as InertiaResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PartidasEspecificasController extends Controller
 {
@@ -16,31 +19,14 @@ class PartidasEspecificasController extends Controller
         return DB::connection('copiasivso');
     }
 
-    public function index(Request $request): Response
+    /**
+     * Consulta base con filtros año, partida y búsqueda (sin paginar).
+     */
+    private function basePeQuery(Request $request, int $anio, ?int $partidaFiltro): Builder
     {
-        $ejercicio = (int) config('sivso.ejercicio_actual', 2025);
-        $anio = (int) $request->query('anio', $ejercicio);
-
-        $rawPartida = $request->query('partida_id');
-        $partidaFiltro = ($rawPartida !== null && $rawPartida !== '' && (int) $rawPartida > 0)
-            ? (int) $rawPartida
-            : null;
-
         $q = $this->cx()->table('partidas_especificas as pe')
             ->join('partidas as pa', 'pa.id', '=', 'pe.partida_id')
-            ->where('pe.anio', $anio)
-            ->orderBy('pa.no_partida')
-            ->orderBy('pe.clave')
-            ->select([
-                'pe.id',
-                'pe.partida_id',
-                'pe.anio',
-                'pe.clave',
-                'pe.descripcion',
-                'pe.clave_partida',
-                'pa.no_partida',
-                'pa.descripcion as partida_descripcion',
-            ]);
+            ->where('pe.anio', $anio);
 
         if ($partidaFiltro) {
             $q->where('pe.partida_id', $partidaFiltro);
@@ -55,6 +41,59 @@ class PartidasEspecificasController extends Controller
                     ->orWhere('pa.no_partida', 'like', $term);
             });
         }
+
+        return $q;
+    }
+
+    /**
+     * Un registro representativo por cada valor distinto de `clave` (MIN(id)).
+     *
+     * @return Collection<int, int>
+     */
+    private function idsRepresentativosPorClaveUnica(Request $request, int $anio, ?int $partidaFiltro): Collection
+    {
+        return $this->basePeQuery($request, $anio, $partidaFiltro)
+            ->selectRaw('MIN(pe.id) as id')
+            ->groupBy('pe.clave')
+            ->pluck('id');
+    }
+
+    private function listadoQuery(Request $request, int $anio, ?int $partidaFiltro, bool $soloClavesUnicas): Builder
+    {
+        $q = $this->basePeQuery($request, $anio, $partidaFiltro);
+
+        if ($soloClavesUnicas) {
+            $ids = $this->idsRepresentativosPorClaveUnica($request, $anio, $partidaFiltro);
+            $q->whereIn('pe.id', $ids->all());
+        }
+
+        return $q->orderBy('pa.no_partida')
+            ->orderBy('pe.clave')
+            ->select([
+                'pe.id',
+                'pe.partida_id',
+                'pe.anio',
+                'pe.clave',
+                'pe.descripcion',
+                'pe.clave_partida',
+                'pa.no_partida',
+                'pa.descripcion as partida_descripcion',
+            ]);
+    }
+
+    public function index(Request $request): InertiaResponse
+    {
+        $ejercicio = (int) config('sivso.ejercicio_actual', 2025);
+        $anio = (int) $request->query('anio', $ejercicio);
+
+        $rawPartida = $request->query('partida_id');
+        $partidaFiltro = ($rawPartida !== null && $rawPartida !== '' && (int) $rawPartida > 0)
+            ? (int) $rawPartida
+            : null;
+
+        $soloClavesUnicas = $request->query('unicas', '1') !== '0';
+
+        $q = $this->listadoQuery($request, $anio, $partidaFiltro, $soloClavesUnicas);
 
         $paginator = $q->paginate(50)->withQueryString();
 
@@ -75,6 +114,9 @@ class PartidasEspecificasController extends Controller
                 'anio' => $row->anio,
                 'clave' => $row->clave,
                 'descripcion' => $row->descripcion,
+                'clave_partida' => $row->clave_partida,
+                'no_partida' => $row->no_partida,
+                'partida_descripcion' => $row->partida_descripcion,
                 'productos_count' => (int) ($productosPorPe[$row->id] ?? 0),
             ])
         );
@@ -105,7 +147,70 @@ class PartidasEspecificasController extends Controller
                 'buscar' => $request->string('buscar')->toString(),
                 'partida_id' => $partidaFiltro,
                 'anio' => $anio,
+                'unicas' => $soloClavesUnicas,
             ],
+        ]);
+    }
+
+    public function exportCsv(Request $request): StreamedResponse
+    {
+        $ejercicio = (int) config('sivso.ejercicio_actual', 2025);
+        $anio = (int) $request->query('anio', $ejercicio);
+
+        $rawPartida = $request->query('partida_id');
+        $partidaFiltro = ($rawPartida !== null && $rawPartida !== '' && (int) $rawPartida > 0)
+            ? (int) $rawPartida
+            : null;
+
+        $soloClavesUnicas = $request->query('unicas', '1') !== '0';
+
+        $rows = $this->listadoQuery($request, $anio, $partidaFiltro, $soloClavesUnicas)->get();
+
+        $ids = $rows->pluck('id');
+        $productosPorPe = $ids->isEmpty()
+            ? collect()
+            : $this->cx()->table('solicitudes_vestuario')
+                ->whereIn('partida_especifica_id', $ids)
+                ->where('anio', $anio)
+                ->groupBy('partida_especifica_id')
+                ->selectRaw('partida_especifica_id, COUNT(*) as c')
+                ->pluck('c', 'partida_especifica_id');
+
+        $filename = 'lineas_presupuestales_'.$anio.'_'.now()->format('Y-m-d_His').'.csv';
+
+        return response()->streamDownload(function () use ($rows, $productosPorPe, $anio) {
+            $out = fopen('php://output', 'w');
+            if ($out === false) {
+                return;
+            }
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, [
+                'id',
+                'clave',
+                'descripcion',
+                'clave_partida',
+                'anio',
+                'no_partida',
+                'partida_descripcion',
+                'solicitudes_count',
+            ], ',', '"', '');
+
+            foreach ($rows as $row) {
+                fputcsv($out, [
+                    $row->id,
+                    $row->clave,
+                    $row->descripcion,
+                    $row->clave_partida,
+                    $row->anio,
+                    $row->no_partida,
+                    $row->partida_descripcion,
+                    (int) ($productosPorPe[$row->id] ?? 0),
+                ], ',', '"', '');
+            }
+
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
     }
 

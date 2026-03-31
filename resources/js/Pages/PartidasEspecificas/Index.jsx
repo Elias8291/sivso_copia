@@ -1,7 +1,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router } from '@inertiajs/react';
-import { Plus, Edit3, Trash2, CheckCircle2, Loader2, AlertTriangle, FileText } from 'lucide-react';
-import { useState, useCallback } from 'react';
+import { Plus, Edit3, Trash2, CheckCircle2, Loader2, AlertTriangle, FileText, Download } from 'lucide-react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import SearchInput from '@/Components/SearchInput';
 import FilterBar from '@/Components/FilterBar';
 import FilterSelect from '@/Components/FilterSelect';
@@ -138,6 +138,7 @@ export default function Index({
     filters = {},
 }) {
     const [buscar, setBuscar] = useState(filters.buscar ?? '');
+    const soloUnicas = filters.unicas !== false && filters.unicas !== '0';
     const [showCrear, setShowCrear] = useState(false);
     const [editItem, setEditItem] = useState(null);
     const [deleteItem, setDeleteItem] = useState(null);
@@ -156,9 +157,43 @@ export default function Index({
             );
         });
 
-    const navigate = (params) => {
-        router.get(route('partidas-especificas.index'), params, { preserveState: true, replace: true });
-    };
+    const navigate = useCallback(
+        (partial = {}) => {
+            const nextAnio = partial.anio ?? anio;
+            const nextPartida =
+                partial.partida_id !== undefined ? partial.partida_id : partidaIdFiltro;
+            const nextUnicas =
+                partial.unicas !== undefined ? partial.unicas : soloUnicas ? '1' : '0';
+            const nextBuscar =
+                partial.buscar !== undefined ? String(partial.buscar) : buscar;
+            const params = { anio: nextAnio, unicas: nextUnicas };
+            if (nextPartida) params.partida_id = nextPartida;
+            const qb = nextBuscar.trim();
+            if (qb) params.buscar = qb;
+            router.get(route('partidas-especificas.index'), params, { preserveState: true, replace: true });
+        },
+        [anio, partidaIdFiltro, soloUnicas, buscar],
+    );
+
+    useEffect(() => {
+        const t = setTimeout(() => {
+            const b = buscar.trim();
+            const f = String(filters.buscar ?? '').trim();
+            if (b === f) return;
+            navigate({});
+        }, 400);
+        return () => clearTimeout(t);
+    }, [buscar, filters.buscar, navigate]);
+
+    const exportHref = useMemo(() => {
+        const p = new URLSearchParams();
+        p.set('anio', String(anio));
+        p.set('unicas', soloUnicas ? '1' : '0');
+        if (partidaIdFiltro) p.set('partida_id', partidaIdFiltro);
+        const qb = buscar.trim();
+        if (qb) p.set('buscar', qb);
+        return `${route('partidas-especificas.export')}?${p.toString()}`;
+    }, [anio, soloUnicas, partidaIdFiltro, buscar]);
 
     const handleDelete = () => {
         if (!deleteItem) return;
@@ -197,13 +232,22 @@ export default function Index({
                             Catálogo de artículos por partida y ejercicio.
                         </p>
                     </div>
-                    <button
-                        onClick={() => setShowCrear(true)}
-                        className="inline-flex items-center justify-center gap-2 rounded-md bg-zinc-900 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
-                    >
-                        <Plus className="size-4" strokeWidth={2} />
-                        Nueva Línea
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <a
+                            href={exportHref}
+                            className="inline-flex items-center justify-center gap-2 rounded-md border border-zinc-200 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-zinc-800 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                        >
+                            <Download className="size-4" strokeWidth={2} />
+                            Exportar CSV
+                        </a>
+                        <button
+                            onClick={() => setShowCrear(true)}
+                            className="inline-flex items-center justify-center gap-2 rounded-md bg-zinc-900 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
+                        >
+                            <Plus className="size-4" strokeWidth={2} />
+                            Nueva Línea
+                        </button>
+                    </div>
                 </div>
 
                 <FilterBar>
@@ -218,7 +262,7 @@ export default function Index({
                         <FilterSelect
                             label="Ejercicio"
                             value={String(anio)}
-                            onChange={(v) => navigate({ anio: v, partida_id: partidaIdFiltro || undefined })}
+                            onChange={(v) => navigate({ anio: v })}
                             options={anios_disponibles.map((a) => ({ value: String(a), label: String(a) }))}
                         />
                     </div>
@@ -226,13 +270,24 @@ export default function Index({
                         <FilterSelect
                             label="Partida"
                             value={partidaIdFiltro}
-                            onChange={(v) => navigate({ anio, partida_id: v || undefined })}
+                            onChange={(v) => navigate({ partida_id: v || undefined })}
                             options={[
                                 { value: '', label: 'Todas las partidas' },
                                 ...partidas.map((p) => ({
                                     value: String(p.id),
                                     label: `${p.no_partida}${p.descripcion ? ` — ${String(p.descripcion).slice(0, 40)}` : ''}`,
                                 })),
+                            ]}
+                        />
+                    </div>
+                    <div className="w-full sm:w-52">
+                        <FilterSelect
+                            label="Claves"
+                            value={soloUnicas ? '1' : '0'}
+                            onChange={(v) => navigate({ unicas: v })}
+                            options={[
+                                { value: '1', label: 'Solo claves únicas' },
+                                { value: '0', label: 'Todas las filas' },
                             ]}
                         />
                     </div>
