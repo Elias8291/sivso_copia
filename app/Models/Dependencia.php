@@ -8,24 +8,25 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Dependencia extends Model
 {
-    protected $connection = 'copiasivso';
+    protected $table = 'dependencia';
 
-    protected $table = 'dependencias';
+    protected $primaryKey = 'ur';
 
-    protected $fillable = ['codigo', 'ur', 'nombre', 'ur_texto'];
+    public $incrementing = false;
 
-    public function delegaciones(): BelongsToMany
-    {
-        return $this->belongsToMany(Delegacion::class, 'dependencia_delegacion');
-    }
+    protected $keyType = 'int';
+
+    public $timestamps = false;
+
+    protected $fillable = ['ur', 'nombre', 'nombre_corto'];
 
     public function empleados(): HasMany
     {
-        return $this->hasMany(Empleado::class);
+        return $this->hasMany(Empleado::class, 'ur', 'ur');
     }
 
-    public function cuposPresupuesto(): HasMany
+    public function delegaciones(): BelongsToMany
     {
-        return $this->hasMany(CupoPresupuesto::class);
+        return $this->belongsToMany(Delegacion::class, 'dependencia_delegacion', 'ur', 'delegacion_codigo', 'ur', 'codigo');
     }
 }

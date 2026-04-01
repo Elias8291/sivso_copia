@@ -2,52 +2,54 @@
 
 namespace Database\Seeders;
 
-use App\Support\CopiasivsoDatabaseCsvSnapshot;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
-    /**
-     * Orden: superusuario → RBAC → CopiasivsoCsvSeeder (CSV) → reconciliación delegación.
-     * Los .xlsx (sivso:export-database-xlsx) son solo respaldo/archivo; no se cargan aquí. Importación opcional: db:seed --class=CopiasivsoExcelDirectorySeeder.
-     *
-     * Desactivar todo el bloque copiasivso: SIVSO_SKIP_DATA_SEED=true en .env
-     */
     public function run(): void
     {
+        $this->call(RolePermissionSeeder::class);
+
+        $admin = User::query()->firstOrCreate(
+            ['rfc' => 'RAJE020226H97'],
+            [
+                'name' => 'Administrador',
+                'email' => 'admin@example.com',
+                'password' => Hash::make('Abisai1456'),
+                'must_change_password' => false,
+                'activo' => true,
+            ]
+        );
+        $admin->syncRoles(['Administrador']);
+
+        Role::query()
+            ->where('name', 'Administrador')
+            ->where('guard_name', 'web')
+            ->first()
+            ?->syncPermissions(Permission::query()->where('guard_name', 'web')->get());
+
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
+
         $this->call([
-            SuperUserSeeder::class,
-            SivsoRbacSeeder::class,
+            DependenciaCsvSeeder::class,
+            DelegacionCsvSeeder::class,
+            ClasificacionBienCsvSeeder::class,
+            DependenciaDelegacionCsvSeeder::class,
+            DelegadoCsvSeeder::class,
+            DelegadoDelegacionCsvSeeder::class,
+            EmpleadoCsvSeeder::class,
+            ProductoLicitadoCsvSeeder::class,
+            ProductoCotizadoCsvSeeder::class,
+            ProductoLicitadoClasificacionCsvSeeder::class,
+            ProductoCotizadoClasificacionCsvSeeder::class,
+            CupoDependenciaPartidaCsvSeeder::class,
+            AsignacionEmpleadoProductoCsvSeeder::class,
+            ConfiguracionSivsoCsvSeeder::class,
         ]);
-
-        $exportEmpleadosCsv = filter_var(env('SIVSO_EXPORT_EMPLEADOS_CSV', false), FILTER_VALIDATE_BOOLEAN);
-
-        if (filter_var(env('SIVSO_SKIP_DATA_SEED', false), FILTER_VALIDATE_BOOLEAN)) {
-            if ($exportEmpleadosCsv) {
-                $this->call(ExportEmpleadosCsvSeeder::class);
-            }
-
-            return;
-        }
-
-        $csvDir = CopiasivsoDatabaseCsvSnapshot::csvDirectoryAbsolute();
-        $csvManifest = $csvDir.DIRECTORY_SEPARATOR.'_manifest.json';
-        $csvFiles = glob($csvDir.DIRECTORY_SEPARATOR.'*.csv') ?: [];
-
-        if (is_readable($csvManifest) && $csvFiles !== []) {
-            $this->call(CopiasivsoCsvSeeder::class);
-            $this->call(EmpleadosReconcileDelegacionSeeder::class);
-        }
-
-        if ($exportEmpleadosCsv) {
-            $this->call(ExportEmpleadosCsvSeeder::class);
-        }
-
-        if (filter_var(env('SIVSO_SYNC_EMPLEADOS_CSV_SNAPSHOT', false), FILTER_VALIDATE_BOOLEAN)) {
-            $this->call(SyncEmpleadosCsvToSnapshotSeeder::class);
-        }
     }
 }

@@ -3,6 +3,51 @@ import { Head, Link, useForm as useInertiaForm, router } from '@inertiajs/react'
 import { Search, Plus, Eye, Edit3, Trash2, ChevronDown, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
 import { useState, useMemo, useEffect, useCallback } from 'react';
 
+function Pagination({ paginator }) {
+    if (!paginator?.links?.length) {
+        return null;
+    }
+    const from = paginator.from ?? 0;
+    const to = paginator.to ?? 0;
+    const total = paginator.total ?? 0;
+    return (
+        <div className="flex flex-col gap-3 border-t border-zinc-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-zinc-800">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                {total === 0 ? 'Sin resultados' : `Mostrando ${from}–${to} de ${total}`}
+            </p>
+            <div className="flex flex-wrap items-center gap-1">
+                {paginator.links.map((link, i) => {
+                    const label = String(link.label).replace('&laquo;', '«').replace('&raquo;', '»');
+                    if (!link.url) {
+                        return (
+                            <span
+                                key={i}
+                                className="inline-flex min-w-8 items-center justify-center rounded-md px-2 py-1 text-xs font-medium text-zinc-400 dark:text-zinc-600"
+                            >
+                                {label}
+                            </span>
+                        );
+                    }
+                    return (
+                        <Link
+                            key={i}
+                            href={link.url}
+                            preserveScroll
+                            className={`inline-flex min-w-8 items-center justify-center rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+                                link.active
+                                    ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
+                                    : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800'
+                            }`}
+                        >
+                            {label}
+                        </Link>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
 /* ── Badges ──────────────────────────────────────────────── */
 function StatusBadge({ activo }) {
     return (
@@ -247,7 +292,7 @@ function FormUserModal({ user, roles, onClose }) {
     );
 }
 
-export default function Index({ users, roles }) {
+export default function Index({ users, roles = [] }) {
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('Todos');
     
@@ -271,12 +316,14 @@ export default function Index({ users, roles }) {
         }
     };
 
+    const userRows = Array.isArray(users?.data) ? users.data : Array.isArray(users) ? users : [];
+
     const filtered = useMemo(() => {
-        let result = users;
-        
+        let result = userRows;
+
         if (statusFilter !== 'Todos') {
             const isActive = statusFilter === 'Activos';
-            result = result.filter(u => !!u.activo === isActive);
+            result = result.filter((u) => !!u.activo === isActive);
         }
 
         if (!search.trim()) return result;
@@ -287,7 +334,7 @@ export default function Index({ users, roles }) {
                 u.rfc?.toLowerCase().includes(q) ||
                 u.email?.toLowerCase().includes(q)
         );
-    }, [users, search, statusFilter]);
+    }, [userRows, search, statusFilter]);
 
     return (
         <AuthenticatedLayout
@@ -359,7 +406,8 @@ export default function Index({ users, roles }) {
                 <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-[#0A0A0B]">
                     <div className="border-b border-zinc-200 px-4 py-4 sm:px-6 dark:border-zinc-800">
                         <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-800 dark:text-zinc-200">
-                            Usuarios ({filtered.length})
+                            Usuarios ({filtered.length}
+                            {typeof users?.total === 'number' ? ` · ${users.total} en total` : ''})
                         </h3>
                     </div>
                     
@@ -432,6 +480,8 @@ export default function Index({ users, roles }) {
                     </div>
 
                     {/* Mobile List omitted for brevity but standard logic implies it would duplicate the desktop loop styling layout */}
+
+                    <Pagination paginator={users} />
                 </div>
             </div>
 

@@ -1,7 +1,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link, router, useForm as useInertiaForm } from '@inertiajs/react';
+import { Head, Link, router, useForm as useInertiaForm, usePage } from '@inertiajs/react';
 import { Search, Shirt, ChevronRight, Plus, Edit3, Trash2, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import SearchInput from '@/Components/SearchInput';
 import FilterBar from '@/Components/FilterBar';
 import FilterSelect from '@/Components/FilterSelect';
@@ -206,12 +206,58 @@ export default function Index({
     dependencias,
 }) {
     const [buscar, setBuscar] = useState(filters.buscar ?? '');
-    const [dependenciaFilter, setDependenciaFilter] = useState('Todas');
-    const [delegacionFilter, setDelegacionFilter] = useState('Todas');
+    const [dependenciaFilter, setDependenciaFilter] = useState(
+        filters.ur != null && filters.ur !== '' ? String(filters.ur) : 'Todas'
+    );
+    const [delegacionFilter, setDelegacionFilter] = useState(
+        filters.delegacion ? String(filters.delegacion) : 'Todas'
+    );
     const [isCreating, setIsCreating] = useState(false);
     const [empleadoAEditar, setAEditar] = useState(null);
     const [empleadoToDelete, setEmpleadoToDelete] = useState(null);
+    const { auth } = usePage().props;
+    const isSuperAdmin = Boolean(auth?.is_super_admin);
+    const isSivsoAdministrator = Boolean(auth?.is_sivso_administrator);
+    const permissionList = Array.isArray(auth?.permissions) ? auth.permissions : [];
+    const canPerm = (name) => isSuperAdmin || isSivsoAdministrator || permissionList.includes(name);
+    const searchDebounceRef = useRef(null);
+    const searchFieldWrapRef = useRef(null);
     const allRows = Array.isArray(empleados?.data) ? empleados.data : [];
+
+    useEffect(() => {
+        setDependenciaFilter(filters.ur != null && filters.ur !== '' ? String(filters.ur) : 'Todas');
+        setDelegacionFilter(filters.delegacion ? String(filters.delegacion) : 'Todas');
+    }, [filters.ur, filters.delegacion]);
+
+    useEffect(() => {
+        const typingInSearch = searchFieldWrapRef.current?.contains?.(document.activeElement);
+        if (!typingInSearch) {
+            setBuscar(filters.buscar ?? '');
+        }
+    }, [filters.buscar]);
+
+    const queryForList = useCallback(
+        (overrides = {}) => {
+            const b = overrides.buscar !== undefined ? overrides.buscar : buscar;
+            const urVal = overrides.ur !== undefined ? overrides.ur : dependenciaFilter;
+            const delVal = overrides.delegacion !== undefined ? overrides.delegacion : delegacionFilter;
+            const anioVal = overrides.anio !== undefined ? overrides.anio : ejercicio;
+            const q = {};
+            const t = String(b ?? '').trim();
+            if (t !== '') {
+                q.buscar = t;
+            }
+            q.anio = anioVal;
+            if (urVal !== 'Todas' && urVal !== '' && urVal != null) {
+                q.ur = urVal;
+            }
+            if (delVal !== 'Todas' && delVal !== '' && delVal != null) {
+                q.delegacion = delVal;
+            }
+            return q;
+        },
+        [buscar, dependenciaFilter, delegacionFilter, ejercicio]
+    );
 
     const closeEmpleadoFormModal = useCallback(() => {
         setIsCreating(false);
@@ -229,27 +275,8 @@ export default function Index({
         }
     };
 
-    const rows = allRows.filter(item => {
-        const q = buscar.toLowerCase();
-        const matchSearch = buscar.trim() === '' || (
-            item.nombre_listado?.toLowerCase().includes(q) ||
-            item.nombre?.toLowerCase().includes(q) ||
-            item.apellido_paterno?.toLowerCase().includes(q) ||
-            item.apellido_materno?.toLowerCase().includes(q) ||
-            item.nue?.toLowerCase().includes(q) ||
-            item.puesto?.toLowerCase().includes(q) ||
-            item.dependencia?.toLowerCase().includes(q) ||
-            item.delegacion?.toLowerCase().includes(q)
-        );
-
-        const matchDependencia = dependenciaFilter === 'Todas' || 
-            item.dependencia_id?.toString() === dependenciaFilter;
-
-        const matchDelegacion = delegacionFilter === 'Todas' || 
-            item.delegacion_id?.toString() === delegacionFilter;
-
-        return matchSearch && matchDependencia && matchDelegacion;
-    });
+    const rows = allRows;
+    const totalFiltrados = empleados?.total ?? rows.length;
 
     return (
         <AuthenticatedLayout
@@ -270,20 +297,34 @@ export default function Index({
                             Empleados
                         </h2>
                         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                            Catálogo desde copiasivso. Productos según el ejercicio seleccionado.
+                            Directorio de personal. Productos asignados según el ejercicio seleccionado.
                         </p>
                     </div>
-                    <button onClick={() => setIsCreating(true)} className="inline-flex items-center justify-center gap-2 rounded-md bg-zinc-900 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white">
-                        <Plus className="size-4" strokeWidth={2} />
-                        Nuevo Empleado
-                    </button>
+                    {canPerm('Crear empleados') && (
+                        <button onClick={() => setIsCreating(true)} className="inline-flex items-center justify-center gap-2 rounded-md bg-zinc-900 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white">
+                            <Plus className="size-4" strokeWidth={2} />
+                            Nuevo Empleado
+                        </button>
+                    )}
                 </div>
 
                 <FilterBar>
-                    <div className="w-full sm:max-w-md">
-                        <SearchInput 
-                            value={buscar} 
-                            onChange={setBuscar}
+                    <div ref={searchFieldWrapRef} className="w-full sm:max-w-md">
+                        <SearchInput
+                            value={buscar}
+                            onChange={(v) => {
+                                setBuscar(v);
+                                if (searchDebounceRef.current) {
+                                    clearTimeout(searchDebounceRef.current);
+                                }
+                                searchDebounceRef.current = setTimeout(() => {
+                                    router.get(route('empleados.index'), queryForList({ buscar: v }), {
+                                        preserveState: true,
+                                        replace: true,
+                                        preserveScroll: true,
+                                    });
+                                }, 350);
+                            }}
                             placeholder="Nombre, NUE, dependencia o delegación..."
                         />
                     </div>
@@ -292,15 +333,11 @@ export default function Index({
                             label="Ejercicio"
                             value={String(ejercicio)}
                             onChange={(v) => {
-                                router.get(
-                                    route('empleados.index'),
-                                    { anio: v },
-                                    {
-                                        preserveState: true,
-                                        preserveScroll: true,
-                                        replace: true,
-                                    }
-                                );
+                                router.get(route('empleados.index'), queryForList({ anio: v }), {
+                                    preserveState: true,
+                                    preserveScroll: true,
+                                    replace: true,
+                                });
                             }}
                             options={(anios_disponibles.length ? anios_disponibles : [ejercicio]).map((a) => ({
                                 value: String(a),
@@ -312,7 +349,14 @@ export default function Index({
                         <FilterSelect
                             label="Dependencia"
                             value={dependenciaFilter}
-                            onChange={setDependenciaFilter}
+                            onChange={(v) => {
+                                setDependenciaFilter(v);
+                                router.get(route('empleados.index'), queryForList({ ur: v }), {
+                                    preserveState: true,
+                                    replace: true,
+                                    preserveScroll: true,
+                                });
+                            }}
                             options={[
                                 { value: 'Todas', label: 'Todas' },
                                 ...dependencias.map(d => ({ value: d.id.toString(), label: d.nombre }))
@@ -323,7 +367,14 @@ export default function Index({
                         <FilterSelect
                             label="Delegación"
                             value={delegacionFilter}
-                            onChange={setDelegacionFilter}
+                            onChange={(v) => {
+                                setDelegacionFilter(v);
+                                router.get(route('empleados.index'), queryForList({ delegacion: v }), {
+                                    preserveState: true,
+                                    replace: true,
+                                    preserveScroll: true,
+                                });
+                            }}
                             options={[
                                 { value: 'Todas', label: 'Todas' },
                                 ...delegaciones.map(d => ({ value: d.id.toString(), label: d.nombre }))
@@ -335,7 +386,7 @@ export default function Index({
                 <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-[#0A0A0B]">
                     <div className="border-b border-zinc-200 px-4 py-4 sm:px-6 dark:border-zinc-800">
                         <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-800 dark:text-zinc-200">
-                            Resultados ({rows.length})
+                            Resultados ({totalFiltrados})
                         </h3>
                     </div>
 
@@ -360,7 +411,7 @@ export default function Index({
                             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
                                 {rows.length === 0 && (
                                     <tr>
-                                        <td colSpan={5} className="px-6 py-12 text-center text-sm text-zinc-500">
+                                        <td colSpan={4} className="px-6 py-12 text-center text-sm text-zinc-500">
                                             No se encontraron empleados.
                                         </td>
                                     </tr>
@@ -390,12 +441,16 @@ export default function Index({
                                                     <Shirt className="size-3.5" strokeWidth={2} />
                                                     Ver
                                                 </Link>
-                                                <button onClick={() => setAEditar(item)} className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-300" title="Editar">
-                                                    <Edit3 className="size-4" strokeWidth={2} />
-                                                </button>
-                                                <button onClick={() => setEmpleadoToDelete(item)} className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:text-zinc-500 dark:hover:bg-red-500/10 dark:hover:text-red-500" title="Eliminar">
-                                                    <Trash2 className="size-4" strokeWidth={2} />
-                                                </button>
+                                                {canPerm('Editar empleados') && (
+                                                    <button type="button" onClick={() => setAEditar(item)} className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-300" title="Editar">
+                                                        <Edit3 className="size-4" strokeWidth={2} />
+                                                    </button>
+                                                )}
+                                                {canPerm('Eliminar empleados') && (
+                                                    <button type="button" onClick={() => setEmpleadoToDelete(item)} className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:text-zinc-500 dark:hover:bg-red-500/10 dark:hover:text-red-500" title="Eliminar">
+                                                        <Trash2 className="size-4" strokeWidth={2} />
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>

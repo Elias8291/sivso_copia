@@ -15,7 +15,7 @@ class EnsurePasswordHasBeenChanged
     {
         $user = $request->user();
 
-        if (! $user || (int) $user->must_change_password !== 0) {
+        if (! $user || $user->must_change_password) {
             return $next($request);
         }
 

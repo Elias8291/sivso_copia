@@ -16,7 +16,7 @@ class PasswordController extends Controller
     public function update(Request $request): RedirectResponse
     {
         $user = $request->user();
-        $wasForced = (int) $user->must_change_password === 0;
+        $wasForced = ! $user->must_change_password;
 
         if ($wasForced) {
             $validated = $request->validate([
@@ -31,7 +31,7 @@ class PasswordController extends Controller
 
         $user->update([
             'password' => Hash::make($validated['password']),
-            'must_change_password' => 1,
+            'must_change_password' => true,
         ]);
 
         if ($wasForced) {

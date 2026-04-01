@@ -53,8 +53,9 @@ export default function Dashboard({ stats = {}, ejercicio = 2025 }) {
     const { auth } = usePage().props;
     const user = auth?.user;
     const isSuperAdmin = Boolean(auth?.is_super_admin);
+    const isSivsoAdministrator = Boolean(auth?.is_sivso_administrator);
     const permissions = Array.isArray(auth?.permissions) ? auth.permissions : [];
-    const can = (name) => isSuperAdmin || permissions.includes(name);
+    const can = (name) => isSuperAdmin || isSivsoAdministrator || permissions.includes(name);
     const firstName = (user?.name || '').split(/\s+/)[0] || 'Usuario';
 
     const dateLabel = new Date().toLocaleDateString('es-MX', {
@@ -75,7 +76,7 @@ export default function Dashboard({ stats = {}, ejercicio = 2025 }) {
             icon: User,
         },
         {
-            permission: 'empleados.view',
+            permission: 'Ver empleados',
             href: route('empleados.index'),
             routePattern: 'empleados.*',
             title: 'Empleados',
@@ -83,7 +84,7 @@ export default function Dashboard({ stats = {}, ejercicio = 2025 }) {
             icon: Users2,
         },
         {
-            permission: 'periodos.view',
+            permission: 'Ver periodos',
             href: route('periodos.index'),
             routePattern: 'periodos.*',
             title: 'Periodos',
@@ -91,7 +92,7 @@ export default function Dashboard({ stats = {}, ejercicio = 2025 }) {
             icon: Calendar,
         },
         {
-            permission: 'dependencias.view',
+            permission: 'Ver dependencias',
             href: route('dependencias.index'),
             routePattern: 'dependencias.*',
             title: 'Dependencias',
@@ -99,7 +100,7 @@ export default function Dashboard({ stats = {}, ejercicio = 2025 }) {
             icon: Building2,
         },
         {
-            permission: 'users.view',
+            permission: 'Ver usuarios',
             href: route('users.index'),
             routePattern: 'users.*',
             title: 'Usuarios',
@@ -143,7 +144,7 @@ export default function Dashboard({ stats = {}, ejercicio = 2025 }) {
                     </div>
                 </header>
 
-                {can('delegation.self') && (
+                {can('Ver mi delegación') && (
                     <section className="mb-8" aria-labelledby="dash-featured">
                         <h2 id="dash-featured" className="sr-only">
                             Acceso destacado

@@ -4,23 +4,17 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Delegado extends Model
 {
-    protected $connection = 'copiasivso';
+    protected $table = 'delegado';
 
-    protected $table = 'delegados';
+    public $timestamps = false;
 
-    protected $fillable = ['nombre_completo'];
+    protected $fillable = ['nombre_completo', 'nue'];
 
     public function delegaciones(): BelongsToMany
     {
-        return $this->belongsToMany(Delegacion::class, 'delegado_delegacion');
-    }
-
-    public function user(): HasOne
-    {
-        return $this->hasOne(User::class);
+        return $this->belongsToMany(Delegacion::class, 'delegado_delegacion', 'delegado_id', 'delegacion_codigo', 'id', 'codigo');
     }
 }

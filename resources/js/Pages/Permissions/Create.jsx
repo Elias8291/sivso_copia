@@ -57,11 +57,11 @@ export default function Create() {
                                 <input
                                     type="text"
                                     value={data.name}
-                                    onChange={(e) => setData('name', e.target.value.toLowerCase())}
-                                    placeholder="ej. crear usuarios"
+                                    onChange={(e) => setData('name', e.target.value)}
+                                    placeholder="ej. Ver reportes de inventario"
                                     className="w-full rounded-lg border border-zinc-200 bg-white/80 py-2.5 px-4 text-sm text-zinc-900 outline-none transition-all focus:border-brand-gold focus:ring-1 focus:ring-brand-gold dark:border-zinc-800 dark:bg-zinc-900/80 dark:text-zinc-100"
                                 />
-                                <p className="mt-1 text-[11px] text-zinc-500">Se guardará en minúsculas.</p>
+                                <p className="mt-1 text-[11px] text-zinc-500">Nombre descriptivo en español (letras, números y espacios).</p>
                                 {errors.name && <p className="mt-1 text-xs text-red-500">{errors.name}</p>}
                             </div>
                         </div>

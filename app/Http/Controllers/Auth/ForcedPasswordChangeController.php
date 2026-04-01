@@ -12,7 +12,7 @@ class ForcedPasswordChangeController extends Controller
 {
     public function show(Request $request): Response|RedirectResponse
     {
-        if ((int) $request->user()->must_change_password !== 0) {
+        if ($request->user()->must_change_password) {
             return redirect()->route('dashboard');
         }
 

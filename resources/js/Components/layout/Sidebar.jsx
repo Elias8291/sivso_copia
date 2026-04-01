@@ -12,8 +12,9 @@ export default function Sidebar({
 }) {
     const { auth } = usePage().props;
     const isSuperAdmin = Boolean(auth?.is_super_admin);
+    const isSivsoAdministrator = Boolean(auth?.is_sivso_administrator);
     const permissions = Array.isArray(auth?.permissions) ? auth.permissions : [];
-    const can = (name) => isSuperAdmin || permissions.includes(name);
+    const can = (name) => isSuperAdmin || isSivsoAdministrator || permissions.includes(name);
     const displayName = auth?.user?.name || 'Usuario';
 
     const navLink = (active) =>
@@ -109,7 +110,7 @@ export default function Sidebar({
                             <span className={collapsed ? 'lg:hidden' : ''}>Dashboard</span>
                         </Link>
 
-                        {can('delegation.self') && (
+                        {can('Ver mi delegación') && (
                             <Link href={route('my-delegation.index')} onClick={handleNav} className={navLink(route().current('my-delegation.*'))} title="Mi Delegación">
                                 <MapPin className={iconClass(route().current('my-delegation.*'))} strokeWidth={2} aria-hidden />
                                 <span className={collapsed ? 'lg:hidden' : ''}>Mi Delegación</span>
@@ -121,32 +122,32 @@ export default function Sidebar({
                         </Link>
                     </nav>
 
-                    {(can('empleados.view') ||
-                        can('productos.view') ||
-                        can('partidas.view') ||
-                        can('partidas-especificas.view')) && (
+                    {(can('Ver empleados') ||
+                        can('Ver productos') ||
+                        can('Ver partidas') ||
+                        can('Ver partidas específicas')) && (
                         <>
                             <SectionHeader title="Vestuario" />
                             <nav className="flex flex-col gap-0.5">
-                                {can('empleados.view') && (
+                                {can('Ver empleados') && (
                                     <Link href={route('empleados.index')} onClick={handleNav} className={navLink(route().current('empleados.*'))} title="Empleados">
                                         <Users2 className={iconClass(route().current('empleados.*'))} strokeWidth={2} aria-hidden />
                                         <span className={collapsed ? 'lg:hidden' : ''}>Empleados</span>
                                     </Link>
                                 )}
-                                {can('productos.view') && (
+                                {can('Ver productos') && (
                                     <Link href={route('productos.index')} onClick={handleNav} className={navLink(route().current('productos.*'))} title="Productos">
                                         <Package className={iconClass(route().current('productos.*'))} strokeWidth={2} aria-hidden />
                                         <span className={collapsed ? 'lg:hidden' : ''}>Productos</span>
                                     </Link>
                                 )}
-                                {can('partidas.view') && (
+                                {can('Ver partidas') && (
                                     <Link href={route('partidas.index')} onClick={handleNav} className={navLink(route().current('partidas.*'))} title="Partidas">
                                         <ListTree className={iconClass(route().current('partidas.*'))} strokeWidth={2} aria-hidden />
                                         <span className={collapsed ? 'lg:hidden' : ''}>Partidas</span>
                                     </Link>
                                 )}
-                                {can('partidas-especificas.view') && (
+                                {can('Ver partidas específicas') && (
                                     <Link href={route('partidas-especificas.index')} onClick={handleNav} className={navLink(route().current('partidas-especificas.*'))} title="Líneas Presupuestales">
                                         <FileText className={iconClass(route().current('partidas-especificas.*'))} strokeWidth={2} aria-hidden />
                                         <span className={collapsed ? 'lg:hidden' : ''}>Líneas Presupuestales</span>
@@ -156,23 +157,23 @@ export default function Sidebar({
                         </>
                     )}
 
-                    {(can('dependencias.view') || can('delegaciones.view') || can('delegados.view')) && (
+                    {(can('Ver dependencias') || can('Ver delegaciones') || can('Ver delegados')) && (
                         <>
                             <SectionHeader title="Estructura" />
                             <nav className="flex flex-col gap-0.5">
-                                {can('dependencias.view') && (
+                                {can('Ver dependencias') && (
                                     <Link href={route('dependencias.index')} onClick={handleNav} className={navLink(route().current('dependencias.*'))} title="Dependencias">
                                         <Building2 className={iconClass(route().current('dependencias.*'))} strokeWidth={2} aria-hidden />
                                         <span className={collapsed ? 'lg:hidden' : ''}>Dependencias</span>
                                     </Link>
                                 )}
-                                {can('delegaciones.view') && (
+                                {can('Ver delegaciones') && (
                                     <Link href={route('delegaciones.index')} onClick={handleNav} className={navLink(route().current('delegaciones.*'))} title="Delegaciones">
                                         <MapPin className={iconClass(route().current('delegaciones.*'))} strokeWidth={2} aria-hidden />
                                         <span className={collapsed ? 'lg:hidden' : ''}>Delegaciones</span>
                                     </Link>
                                 )}
-                                {can('delegados.view') && (
+                                {can('Ver delegados') && (
                                     <Link href={route('delegados.index')} onClick={handleNav} className={navLink(route().current('delegados.*'))} title="Delegados">
                                         <User className={iconClass(route().current('delegados.*'))} strokeWidth={2} aria-hidden />
                                         <span className={collapsed ? 'lg:hidden' : ''}>Delegados</span>
@@ -182,32 +183,32 @@ export default function Sidebar({
                         </>
                     )}
 
-                    {(can('periodos.view') ||
-                        can('users.view') ||
-                        can('roles.view') ||
-                        can('permissions.view')) && (
+                    {(can('Ver periodos') ||
+                        can('Ver usuarios') ||
+                        can('Ver roles') ||
+                        can('Ver permisos del sistema')) && (
                         <>
                             <SectionHeader title="Administración" />
                             <nav className="flex flex-col gap-0.5">
-                                {can('periodos.view') && (
+                                {can('Ver periodos') && (
                                     <Link href={route('periodos.index')} onClick={handleNav} className={navLink(route().current('periodos.*'))} title="Periodos">
                                         <Calendar className={iconClass(route().current('periodos.*'))} strokeWidth={2} aria-hidden />
                                         <span className={collapsed ? 'lg:hidden' : ''}>Periodos</span>
                                     </Link>
                                 )}
-                                {can('users.view') && (
+                                {can('Ver usuarios') && (
                                     <Link href={route('users.index')} onClick={handleNav} className={navLink(route().current('users.index'))} title="Usuarios">
                                         <Users className={iconClass(route().current('users.index'))} strokeWidth={2} aria-hidden />
                                         <span className={collapsed ? 'lg:hidden' : ''}>Usuarios</span>
                                     </Link>
                                 )}
-                                {can('roles.view') && (
+                                {can('Ver roles') && (
                                     <Link href={route('roles.index')} onClick={handleNav} className={navLink(route().current('roles.*'))} title="Roles">
                                         <ShieldCheck className={iconClass(route().current('roles.*'))} strokeWidth={2} aria-hidden />
                                         <span className={collapsed ? 'lg:hidden' : ''}>Roles</span>
                                     </Link>
                                 )}
-                                {can('permissions.view') && (
+                                {can('Ver permisos del sistema') && (
                                     <Link href={route('permissions.index')} onClick={handleNav} className={navLink(route().current('permissions.*'))} title="Permisos">
                                         <Key className={iconClass(route().current('permissions.*'))} strokeWidth={2} aria-hidden />
                                         <span className={collapsed ? 'lg:hidden' : ''}>Permisos</span>

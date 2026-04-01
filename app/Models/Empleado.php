@@ -8,32 +8,32 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Empleado extends Model
 {
-    protected $connection = 'copiasivso';
+    protected $table = 'empleado';
 
-    protected $table = 'empleados';
+    public $timestamps = false;
 
     protected $fillable = [
+        'legacy_empleado_id',
         'nue',
         'nombre',
         'apellido_paterno',
         'apellido_materno',
-        'dependencia_id',
-        'delegacion_id',
         'ur',
+        'delegacion_codigo',
     ];
 
     public function dependencia(): BelongsTo
     {
-        return $this->belongsTo(Dependencia::class, 'dependencia_id');
+        return $this->belongsTo(Dependencia::class, 'ur', 'ur');
     }
 
     public function delegacion(): BelongsTo
     {
-        return $this->belongsTo(Delegacion::class, 'delegacion_id');
+        return $this->belongsTo(Delegacion::class, 'delegacion_codigo', 'codigo');
     }
 
-    public function solicitudesVestuario(): HasMany
+    public function asignaciones(): HasMany
     {
-        return $this->hasMany(SolicitudVestuario::class, 'empleado_id');
+        return $this->hasMany(AsignacionEmpleadoProducto::class, 'empleado_id');
     }
 }

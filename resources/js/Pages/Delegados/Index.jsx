@@ -10,6 +10,54 @@ import SearchInput from '@/Components/SearchInput';
 import FilterBar from '@/Components/FilterBar';
 import FilterSelect from '@/Components/FilterSelect';
 
+function Pagination({ paginator }) {
+    if (!paginator?.links?.length) {
+        return null;
+    }
+    const from = paginator.from ?? 0;
+    const to = paginator.to ?? 0;
+    const total = paginator.total ?? 0;
+    return (
+        <div className="flex flex-col gap-3 border-t border-zinc-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-zinc-800">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                {total === 0 ? 'Sin resultados' : `Mostrando ${from}–${to} de ${total}`}
+            </p>
+            <div className="flex flex-wrap items-center gap-1">
+                {paginator.links.map((link, i) => {
+                    const label = String(link.label).replace('&laquo;', '«').replace('&raquo;', '»');
+                    if (!link.url) {
+                        return (
+                            <span
+                                key={i}
+                                className="inline-flex min-w-8 items-center justify-center rounded-md px-2 py-1 text-xs font-medium text-zinc-400 dark:text-zinc-600"
+                            >
+                                {label}
+                            </span>
+                        );
+                    }
+                    return (
+                        <Link
+                            key={i}
+                            href={link.url}
+                            preserveScroll
+                            className={`inline-flex min-w-8 items-center justify-center rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+                                link.active
+                                    ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
+                                    : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800'
+                            }`}
+                        >
+                            {label}
+                        </Link>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
+const theadRow =
+    'border-0 border-b-2 border-b-brand-gold/40 bg-zinc-50/80 dark:border-b-brand-gold/35 dark:bg-zinc-900/55';
+
 const inputCls  = 'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-brand-gold focus:ring-1 focus:ring-brand-gold dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100';
 const labelCls  = 'mb-1 block text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400';
 const tabActive = 'rounded-md bg-white px-4 py-2 text-xs font-bold uppercase tracking-wider text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-100 transition-colors';
@@ -396,7 +444,13 @@ function GestionarUsuarioModal({ delegado, usuarios, onClose }) {
     const tieneUsuario = !!delegado.user_id;
     const [modo, setModo]       = useState(tieneUsuario ? 'existente' : 'nuevo');
     const [userId, setUserId]   = useState(delegado.user_id ? String(delegado.user_id) : '');
-    const [userForm, setUserForm] = useState({ name: delegado.nombre, rfc: '', nue: '', email: '', password: '' });
+    const [userForm, setUserForm] = useState({
+        name: delegado.nombre_completo ?? delegado.nombre ?? '',
+        rfc: '',
+        nue: '',
+        email: '',
+        password: '',
+    });
     const [saving, setSaving]   = useState(false);
     const [errors, setErrors]   = useState({});
 
@@ -425,7 +479,7 @@ function GestionarUsuarioModal({ delegado, usuarios, onClose }) {
     return (
         <ModalShell
             title="Gestionar Usuario"
-            subtitle={delegado.nombre}
+            subtitle={delegado.nombre_completo ?? delegado.nombre}
             onClose={onClose}
             footer={<ModalFooter onConfirm={handleGuardar} onClose={onClose} saving={saving} confirmLabel={modo === 'nuevo' ? 'Crear y Asociar' : 'Asociar'} confirmIcon={modo === 'nuevo' ? UserPlus : Link2} />}
         >
@@ -442,7 +496,14 @@ function GestionarUsuarioModal({ delegado, usuarios, onClose }) {
                         <button type="button" onClick={() => setModo('existente')} className={modo === 'existente' ? tabActive : tabInact}>
                             Seleccionar existente
                         </button>
-                        <button type="button" onClick={() => { setModo('nuevo'); setUserForm(u => ({ ...u, name: delegado.nombre })); }} className={modo === 'nuevo' ? tabActive : tabInact}>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setModo('nuevo');
+                                setUserForm((u) => ({ ...u, name: delegado.nombre_completo ?? delegado.nombre ?? '' }));
+                            }}
+                            className={modo === 'nuevo' ? tabActive : tabInact}
+                        >
                             Crear nuevo usuario
                         </button>
                     </div>
@@ -466,7 +527,7 @@ function GestionarUsuarioModal({ delegado, usuarios, onClose }) {
 
                 {modo === 'nuevo' && (
                     <CrearUsuarioFields
-                        nombre={delegado.nombre}
+                        nombre={delegado.nombre_completo ?? delegado.nombre}
                         form={userForm}
                         setForm={setUserForm}
                         errors={errors}
@@ -488,46 +549,64 @@ function UsuarioBadge({ user_id, user_name, user_activo }) {
         );
     }
     return (
-        <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${user_activo ? 'text-emerald-600 dark:text-emerald-500' : 'text-zinc-500 dark:text-zinc-400'}`}>
+        <span
+            className={`inline-flex items-center gap-1.5 text-xs font-semibold ${
+                user_activo ? 'text-brand-gold dark:text-brand-gold-soft' : 'text-zinc-500 dark:text-zinc-400'
+            }`}
+        >
             <UserCheck className="size-3.5" strokeWidth={2} />
             {user_name}
         </span>
     );
 }
 
-export default function Index({ delegados = [], usuarios = [], delegaciones = [], filters = {} }) {
-    const [buscar, setBuscar]           = useState(filters.buscar ?? '');
-    const [delegacionFilter, setDelegacionFilter] = useState('Todas');
+export default function Index({
+    delegados = { data: [], links: [], total: 0 },
+    usuarios = [],
+    delegaciones = [],
+    filters = {},
+}) {
+    const [buscar, setBuscar] = useState(filters.buscar ?? '');
+    const [delegacionFilter, setDelegacionFilter] = useState(filters.delegacion ?? 'Todas');
     const [usuarioFilter, setUsuarioFilter] = useState('Todos');
-    const [showCrear, setShowCrear]     = useState(false);
+    const [showCrear, setShowCrear] = useState(false);
     const [gestionarItem, setGestionarItem] = useState(null);
+    const skipFirst = useRef(true);
 
-    const filteredDelegados = buscar.trim() === ''
-        ? delegados
-        : delegados.filter(item => {
-            const q = buscar.toLowerCase();
-            return (
-                item.nombre?.toLowerCase().includes(q) ||
-                item.delegacion?.toLowerCase().includes(q) ||
-                item.user_name?.toLowerCase().includes(q)
+    useEffect(() => {
+        setBuscar(filters.buscar ?? '');
+        setDelegacionFilter(filters.delegacion ?? 'Todas');
+    }, [filters.buscar, filters.delegacion]);
+
+    useEffect(() => {
+        if (skipFirst.current) {
+            skipFirst.current = false;
+            return;
+        }
+        const id = setTimeout(() => {
+            router.get(
+                route('delegados.index'),
+                { buscar, delegacion: delegacionFilter },
+                { preserveState: true, replace: true }
             );
-        });
+        }, 350);
+        return () => clearTimeout(id);
+    }, [buscar, delegacionFilter]);
 
-    const finalDelegados = filteredDelegados.filter(item => {
-        const matchDelegacion = delegacionFilter === 'Todas' || item.delegacion === delegacionFilter;
-        
+    const pageRows = Array.isArray(delegados?.data) ? delegados.data : [];
+
+    const finalDelegados = pageRows.filter((item) => {
         let matchUsuario = true;
         if (usuarioFilter === 'ConUsuario') {
             matchUsuario = !!item.user_name;
         } else if (usuarioFilter === 'SinUsuario') {
             matchUsuario = !item.user_name;
         }
-
-        return matchDelegacion && matchUsuario;
+        return matchUsuario;
     });
 
     const desasociar = (delegado) => {
-        if (!confirm(`¿Desasociar el usuario "${delegado.user_name}" de ${delegado.nombre}?`)) return;
+        if (!confirm(`¿Desasociar el usuario "${delegado.user_name}" de ${delegado.nombre_completo ?? delegado.nombre}?`)) return;
         router.delete(route('delegados.desasociar-usuario', delegado.id), { preserveScroll: true });
     };
 
@@ -537,7 +616,7 @@ export default function Index({ delegados = [], usuarios = [], delegaciones = []
                 <div className="flex items-center gap-2 text-sm font-medium text-zinc-500 dark:text-zinc-400">
                     <span>SIVSO</span>
                     <span className="text-zinc-300 dark:text-zinc-600">/</span>
-                    <span className="text-zinc-900 dark:text-zinc-100">DELEGADOS</span>
+                    <span className="font-medium text-zinc-900 dark:text-zinc-100">Delegados</span>
                 </div>
             }
         >
@@ -549,8 +628,8 @@ export default function Index({ delegados = [], usuarios = [], delegaciones = []
                         <h2 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
                             Delegados
                         </h2>
-                        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                            Gestión de delegados y sus usuarios del sistema.
+                        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                            Personas responsables de delegaciones y enlace opcional con usuarios del sistema.
                         </p>
                     </div>
                     <button
@@ -597,20 +676,23 @@ export default function Index({ delegados = [], usuarios = [], delegaciones = []
 
                 <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-[#0A0A0B]">
                     <div className="border-b border-zinc-200 px-4 py-4 sm:px-6 dark:border-zinc-800">
-                        <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-800 dark:text-zinc-200">
-                            Delegados ({finalDelegados.length})
+                        <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                            Delegados
+                            <span className="ml-2 text-xs font-normal text-zinc-500 dark:text-zinc-400">
+                                ({finalDelegados.length} en esta página · {delegados?.total ?? 0} en total)
+                            </span>
                         </h3>
                     </div>
 
                     <div className="hidden overflow-x-auto md:block">
-                        <table className="min-w-[900px] w-full text-left">
+                        <table className="min-w-[900px] w-full text-left text-sm">
                             <thead>
-                                <tr className="border-b border-zinc-200 bg-zinc-50/50 dark:border-zinc-800 dark:bg-zinc-900/50">
-                                    <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Delegado</th>
-                                    <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Delegaciones</th>
-                                    <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Empleados</th>
-                                    <th className="px-6 py-3 text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Usuario</th>
-                                    <th className="px-6 py-3 text-right text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Acciones</th>
+                                <tr className={theadRow}>
+                                    <th className="px-6 py-3 text-xs font-semibold text-zinc-600 dark:text-zinc-400">Delegado</th>
+                                    <th className="px-6 py-3 text-xs font-semibold text-zinc-600 dark:text-zinc-400">Delegaciones</th>
+                                    <th className="px-6 py-3 text-xs font-semibold text-zinc-600 dark:text-zinc-400">Empleados</th>
+                                    <th className="px-6 py-3 text-xs font-semibold text-zinc-600 dark:text-zinc-400">Usuario</th>
+                                    <th className="px-6 py-3 text-right text-xs font-semibold text-zinc-600 dark:text-zinc-400">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
@@ -624,14 +706,17 @@ export default function Index({ delegados = [], usuarios = [], delegaciones = []
                                 {finalDelegados.map((item) => (
                                     <tr key={item.id} className="group transition-colors hover:bg-zinc-50/80 dark:hover:bg-zinc-900/80">
                                         <td className="px-6 py-4">
-                                            <span className="text-xs font-bold uppercase tracking-wide text-zinc-900 dark:text-zinc-100">
-                                                {item.nombre}
-                                            </span>
+                                            <div className="font-medium text-zinc-900 dark:text-zinc-100">
+                                                {item.nombre_completo ?? item.nombre}
+                                            </div>
+                                            {item.nue ? (
+                                                <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">NUE {item.nue}</div>
+                                            ) : null}
                                         </td>
-                                        <td className="px-6 py-4 text-xs text-zinc-500 dark:text-zinc-400">
+                                        <td className="max-w-xs px-6 py-4 text-xs text-zinc-600 dark:text-zinc-300">
                                             {item.delegacion}
                                         </td>
-                                        <td className="px-6 py-4 text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+                                        <td className="px-6 py-4 font-medium tabular-nums text-zinc-800 dark:text-zinc-200">
                                             {item.empleados_count ?? 0}
                                         </td>
                                         <td className="px-6 py-4">
@@ -645,7 +730,7 @@ export default function Index({ delegados = [], usuarios = [], delegaciones = []
                                             <div className="flex items-center justify-end gap-1">
                                                 <Link
                                                     href={route('delegados.show', item.id)}
-                                                    className="rounded p-1.5 text-emerald-600 transition-colors hover:bg-emerald-50 dark:text-emerald-500 dark:hover:bg-emerald-500/10"
+                                                    className="rounded p-1.5 text-brand-gold transition-colors hover:bg-brand-gold/10 dark:hover:bg-brand-gold/10"
                                                     title="Ver detalle"
                                                 >
                                                     <Eye className="size-4" strokeWidth={2} />
@@ -682,16 +767,20 @@ export default function Index({ delegados = [], usuarios = [], delegaciones = []
                         )}
                         {finalDelegados.map((item) => (
                             <div key={item.id} className="space-y-2 p-4">
-                                <div className="text-xs font-bold uppercase tracking-wide text-zinc-900 dark:text-zinc-100">
-                                    {item.nombre}
+                                <div className="font-medium text-zinc-900 dark:text-zinc-100">
+                                    {item.nombre_completo ?? item.nombre}
                                 </div>
+                                {item.nue ? <div className="text-xs text-zinc-500">NUE {item.nue}</div> : null}
                                 <div className="text-xs text-zinc-500 dark:text-zinc-400">{item.delegacion}</div>
                                 <div className="text-xs font-semibold text-zinc-700 dark:text-zinc-200">
                                     Empleados: {item.empleados_count ?? 0}
                                 </div>
                                 <UsuarioBadge user_id={item.user_id} user_name={item.user_name} user_activo={item.user_activo} />
                                 <div className="flex items-center gap-3 pt-1">
-                                    <Link href={route('delegados.show', item.id)} className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-500">
+                                    <Link
+                                        href={route('delegados.show', item.id)}
+                                        className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-gold dark:text-brand-gold-soft"
+                                    >
                                         <Eye className="size-3.5" strokeWidth={2} />
                                         Ver
                                     </Link>
@@ -709,6 +798,8 @@ export default function Index({ delegados = [], usuarios = [], delegaciones = []
                             </div>
                         ))}
                     </div>
+
+                    <Pagination paginator={delegados} />
                 </div>
             </div>
 

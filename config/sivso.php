@@ -1,27 +1,89 @@
 <?php
 
 return [
-    'ejercicio_actual' => (int) env('SIVSO_EJERCICIO', 2025),
+    'ejercicio_actual' => (int) env('SIVSO_EJERCICIO', 2026),
 
     /**
-     * Conexión de Laravel para datos SIVSO (modelos, migraciones, seeders CSV). Igual base que DB_*.
+     * RFC con acceso total (mismo criterio que el front: is_super_admin).
+     *
+     * @var list<string>
      */
-    'csv_snapshot_connection' => env('SIVSO_DATA_CONNECTION', env('SIVSO_CSV_SNAPSHOT_CONNECTION', 'copiasivso')),
+    'super_admin_rfcs' => array_values(array_filter(array_map(
+        trim(...),
+        explode(',', (string) env('SIVSO_SUPER_ADMIN_RFCS', 'XAXX010101000'))
+    ))),
 
     /**
-     * Conexión MySQL de solo lectura para tablas legacy (concentrado, propuesta, dependences, delegacion, delegado).
-     * Por defecto «sivso_legacy_source» apunta a SIVSO_LEGACY_SOURCE_DATABASE o, si no se define, a la misma DB que DB_*.
+     * Nombres antiguos (inglés / técnico) que el RolePermissionSeeder elimina al sembrar
+     * para evitar duplicados al pasar a permisos en español.
+     *
+     * @var list<string>
      */
-    'legacy_source_connection' => env('SIVSO_LEGACY_SOURCE_CONNECTION', 'sivso_legacy_source'),
+    'legacy_permission_names' => [
+        'delegation.self',
+        'empleados.view',
+        'productos.view',
+        'partidas.view',
+        'partidas-especificas.view',
+        'dependencias.view',
+        'delegaciones.view',
+        'delegados.view',
+        'periodos.view',
+        'users.view',
+        'roles.view',
+        'permissions.view',
+    ],
 
     /**
-     * Si tras reconciliar por tabla legacy / pivote único / usuario+NUE aún hay varias delegaciones
-     * con la misma UR para la dependencia del empleado, asigna la delegación con id mínimo (orden estable).
-     * Por defecto true para que delegacion_id no quede vacío sin tabla legacy; en producción con
-     * varias subdelegaciones reales, pon SIVSO_DELEGACION_RECONCILE_FALLBACK_MIN_ID=false y usa «delegacion» legacy.
+     * Permisos del sistema (Spatie `name`, guard web): textos en español claros para roles y UI.
+     * Deben coincidir con `permission:...` en rutas y con `can('...')` en el front.
+     * Super admin (RFC en super_admin_rfcs) pasa cualquier comprobación de Gate/permiso.
+     *
+     * @var list<string>
      */
-    'delegacion_reconcile_fallback_min_id' => filter_var(
-        env('SIVSO_DELEGACION_RECONCILE_FALLBACK_MIN_ID', 'true'),
-        FILTER_VALIDATE_BOOLEAN
-    ),
+    'all_permissions' => [
+        'Ver mi delegación',
+        'Ver empleados',
+        'Crear empleados',
+        'Editar empleados',
+        'Eliminar empleados',
+        'Ver productos',
+        'Crear productos',
+        'Activar productos',
+        'Ver partidas',
+        'Crear partidas',
+        'Editar partidas',
+        'Eliminar partidas',
+        'Ver partidas específicas',
+        'Crear partidas específicas',
+        'Editar partidas específicas',
+        'Eliminar partidas específicas',
+        'Exportar partidas específicas',
+        'Ver dependencias',
+        'Eliminar dependencias',
+        'Ver delegaciones',
+        'Eliminar delegaciones',
+        'Ver delegados',
+        'Crear delegados',
+        'Editar delegados',
+        'Desasociar usuario de delegado',
+        'Ver periodos',
+        'Crear periodos',
+        'Editar periodos',
+        'Eliminar periodos',
+        'Cerrar periodos',
+        'Reabrir periodos',
+        'Ver usuarios',
+        'Crear usuarios',
+        'Editar usuarios',
+        'Eliminar usuarios',
+        'Ver roles',
+        'Crear roles',
+        'Editar roles',
+        'Eliminar roles',
+        'Ver permisos del sistema',
+        'Crear permisos del sistema',
+        'Editar permisos del sistema',
+        'Eliminar permisos del sistema',
+    ],
 ];

@@ -25,7 +25,7 @@ function FormPermissionModal({ permission, onClose }) {
     }, [onClose]);
 
     const setName = (e) => {
-        setForm({ name: e.target.value.toLowerCase() });
+        setForm({ name: e.target.value });
         setErrors((prev) => ({ ...prev, name: null }));
     };
 
@@ -66,8 +66,8 @@ function FormPermissionModal({ permission, onClose }) {
                                 </h3>
                                 <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                                     {isEdit
-                                        ? 'Actualiza el identificador del permiso.'
-                                        : 'Registra un permiso nuevo para asignarlo a roles. Se guardará en minúsculas.'}
+                                        ? 'Actualiza el nombre del permiso (texto claro en español, p. ej. Ver reportes).'
+                                        : 'Registra un permiso nuevo para asignarlo a roles. Usa un nombre descriptivo en español.'}
                                 </p>
                             </div>
 
@@ -78,14 +78,9 @@ function FormPermissionModal({ permission, onClose }) {
                                         type="text"
                                         value={form.name}
                                         onChange={setName}
-                                        placeholder="ej. crear usuarios"
+                                        placeholder="ej. Ver reportes de inventario"
                                         className={inputClass}
                                     />
-                                    {!isEdit && (
-                                        <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-                                            Se guardará en minúsculas.
-                                        </p>
-                                    )}
                                     {errors.name && <p className="mt-1 text-xs text-red-500">{errors.name}</p>}
                                 </div>
                             </div>

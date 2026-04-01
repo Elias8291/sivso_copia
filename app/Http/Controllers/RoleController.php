@@ -6,27 +6,36 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
-class RoleController extends Controller
+final class RoleController extends Controller
 {
     public function index(): Response
     {
-        $roles = Role::with('permissions')
+        $permissions = Permission::query()
+            ->where('guard_name', 'web')
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (Permission $p) => ['id' => $p->id, 'name' => $p->name])
+            ->values()
+            ->all();
+
+        $roles = Role::query()
+            ->where('guard_name', 'web')
+            ->withCount('permissions')
+            ->with('permissions:id')
             ->orderBy('name')
             ->get()
-            ->map(function ($role) {
-                return [
-                    'id' => $role->id,
-                    'name' => $role->name,
-                    'permissions_count' => $role->permissions->count(),
-                    'permission_ids' => $role->permissions->pluck('id')->values()->all(),
-                    'created_at' => $role->created_at,
-                ];
-            });
-
-        $permissions = Permission::orderBy('name')->get(['id', 'name']);
+            ->map(fn (Role $r) => [
+                'id' => $r->id,
+                'name' => $r->name,
+                'permissions_count' => $r->permissions_count,
+                'permission_ids' => $r->permissions->pluck('id')->values()->all(),
+            ])
+            ->values()
+            ->all();
 
         return Inertia::render('Roles/Index', [
             'roles' => $roles,
@@ -36,80 +45,95 @@ class RoleController extends Controller
 
     public function create(): Response
     {
-        $permissions = Permission::orderBy('name')->get(['id', 'name']);
-
         return Inertia::render('Roles/Create', [
-            'permissions' => $permissions,
+            'permissions' => Permission::query()->where('guard_name', 'web')->orderBy('name')->get(['id', 'name']),
+        ]);
+    }
+
+    public function show(Role $role): Response
+    {
+        $role->load(['permissions:id,name']);
+
+        return Inertia::render('Roles/Show', [
+            'role' => [
+                'id' => $role->id,
+                'name' => $role->name,
+                'permissions' => $role->permissions->map(fn (Permission $p) => [
+                    'id' => $p->id,
+                    'name' => $p->name,
+                ])->values()->all(),
+                'created_at' => $role->created_at?->toIso8601String(),
+                'updated_at' => $role->updated_at?->toIso8601String(),
+            ],
+        ]);
+    }
+
+    public function edit(Role $role): Response
+    {
+        $role->load('permissions:id');
+
+        return Inertia::render('Roles/Edit', [
+            'role' => [
+                'id' => $role->id,
+                'name' => $role->name,
+                'permissions' => $role->permissions->pluck('id')->values()->all(),
+            ],
+            'permissions' => Permission::query()->where('guard_name', 'web')->orderBy('name')->get(['id', 'name']),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255', 'unique:roles,name'],
-            'permissions' => ['array'],
-            'permissions.*' => ['exists:permissions,id'],
+            'name' => ['required', 'string', 'max:255'],
+            'permissions' => ['nullable', 'array'],
+            'permissions.*' => ['integer', 'exists:permissions,id'],
         ]);
 
-        $role = Role::create(['name' => strtoupper($validated['name'])]);
+        $name = mb_strtoupper(trim($validated['name']));
 
-        if (!empty($validated['permissions'])) {
-            $role->syncPermissions($validated['permissions']);
-        }
-
-        return redirect()->route('roles.index')->with('success', 'Rol creado exitosamente.');
-    }
-
-    public function show(Role $role): Response
-    {
-        $role->load('permissions');
-
-        return Inertia::render('Roles/Show', [
-            'role' => [
-                'id' => $role->id,
-                'name' => $role->name,
-                'permissions' => $role->permissions->map(fn ($p) => ['id' => $p->id, 'name' => $p->name]),
-                'created_at' => $role->created_at,
-            ]
+        $role = Role::query()->create([
+            'name' => $name,
+            'guard_name' => 'web',
         ]);
-    }
 
-    public function edit(Role $role): Response
-    {
-        $permissions = Permission::orderBy('name')->get(['id', 'name']);
-        $role->load('permissions');
+        $role->syncPermissions($validated['permissions'] ?? []);
+        $this->forgetPermissionCache();
 
-        return Inertia::render('Roles/Edit', [
-            'role' => [
-                'id' => $role->id,
-                'name' => $role->name,
-                'permissions' => $role->permissions->pluck('id')->toArray(),
-            ],
-            'permissions' => $permissions,
-        ]);
+        return redirect()->route('roles.index');
     }
 
     public function update(Request $request, Role $role): RedirectResponse
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255', 'unique:roles,name,' . $role->id],
-            'permissions' => ['array'],
-            'permissions.*' => ['exists:permissions,id'],
+            'name' => ['required', 'string', 'max:255'],
+            'permissions' => ['nullable', 'array'],
+            'permissions.*' => ['integer', 'exists:permissions,id'],
         ]);
 
-        $role->update(['name' => strtoupper($validated['name'])]);
+        $role->name = mb_strtoupper(trim($validated['name']));
+        $role->save();
 
-        if (isset($validated['permissions'])) {
-            $role->syncPermissions($validated['permissions']);
-        }
+        $role->syncPermissions($validated['permissions'] ?? []);
+        $this->forgetPermissionCache();
 
-        return redirect()->route('roles.index')->with('success', 'Rol actualizado exitosamente.');
+        return redirect()->route('roles.index');
     }
 
     public function destroy(Role $role): RedirectResponse
     {
-        $role->delete();
+        if (mb_strtoupper($role->name) === 'ADMINISTRADOR') {
+            return back()->withErrors(['role' => 'No se puede eliminar el rol Administrador.']);
+        }
 
-        return redirect()->route('roles.index')->with('success', 'Rol eliminado exitosamente.');
+        $role->delete();
+        $this->forgetPermissionCache();
+
+        return redirect()->route('roles.index');
+    }
+
+    private function forgetPermissionCache(): void
+    {
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
     }
 }
