@@ -126,7 +126,7 @@ export default function Show({ employee, wardrobeItems }) {
                             <div className="p-6 space-y-6">
                                 <div className="flex items-center gap-4">
                                     <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-lg font-bold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                                        {employee.name.charAt(0)}
+                                        {(employee.name || '?').charAt(0)}
                                     </div>
                                     <div className="min-w-0">
                                         <p className="truncate text-sm font-bold text-zinc-900 dark:text-zinc-100">

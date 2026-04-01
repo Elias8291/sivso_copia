@@ -136,7 +136,7 @@ export default function Index({
     const switchDelegacion = (delId) => {
         router.get(
             route('my-delegation.index'),
-            { delegacion: delId },
+            { delegacion: delId, anio: ejercicio },
             { preserveState: false }
         );
     };

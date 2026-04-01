@@ -31,7 +31,7 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
 
     Route::middleware('permission:Ver mi delegación')->group(function () {
         Route::get('/mi-delegacion', [MyDelegationController::class, 'index'])->name('my-delegation.index');
-        Route::post('/mi-delegacion/tallas', [MyDelegationController::class, 'noop'])->name('my-delegation.save-tallas');
+        Route::post('/mi-delegacion/tallas', [MyDelegationController::class, 'saveTallas'])->name('my-delegation.save-tallas');
         Route::post('/mi-delegacion/baja', [MyDelegationController::class, 'noop'])->name('my-delegation.baja');
         Route::get('/mi-delegacion/{id}', [MyDelegationController::class, 'show'])->name('my-delegation.show');
     });
